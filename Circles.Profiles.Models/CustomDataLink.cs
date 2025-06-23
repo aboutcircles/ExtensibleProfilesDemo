@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 
-namespace ExtensibleProfilesDemo.Model;
+namespace Circles.Profiles.Models;
 
 public sealed record CustomDataLink
 {
@@ -26,6 +26,4 @@ public sealed record CustomDataLink
         RandomNumberGenerator.Fill(buf);
         return "0x" + Convert.ToHexString(buf).ToLowerInvariant();
     }
-
-    public byte[] CanonicaliseForSigning() => CanonicalJson.CanonicaliseWithoutSignature(this);
 }

@@ -1,7 +1,6 @@
 using System.Text.Json.Serialization;
-using System.Collections.Generic;
 
-namespace ExtensibleProfilesDemo.Model;
+namespace Circles.Profiles.Models;
 
 /// <summary>
 /// One “page” of a namespace.

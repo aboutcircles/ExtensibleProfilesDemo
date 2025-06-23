@@ -1,15 +1,15 @@
 using System.Buffers;
 using System.Text.Json;
-using ExtensibleProfilesDemo.Model;
+using Circles.Profiles.Models;
 
-namespace ExtensibleProfilesDemo;
+namespace Circles.Profiles.Sdk;
 
-internal static class CanonicalJson
+public static class CanonicalJson
 {
     /// <summary>
     /// RFC 8785-compatible canonical UTF-8 **without** the “signature” field.
     /// </summary>
-    internal static byte[] CanonicaliseWithoutSignature(CustomDataLink link)
+    public static byte[] CanonicaliseWithoutSignature(CustomDataLink link)
     {
         // serialise once – we'll stream it back out immediately
         using var doc = JsonDocument.Parse(JsonSerializer.Serialize(link));

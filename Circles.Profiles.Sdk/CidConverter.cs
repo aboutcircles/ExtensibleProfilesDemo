@@ -1,8 +1,8 @@
 using Ipfs;
 
-namespace ExtensibleProfilesDemo;
+namespace Circles.Profiles.Sdk;
 
-internal static class CidConverter
+public static class CidConverter
 {
     // multihash header for sha2-256 - 0x12 0x20
     private static readonly byte[] MhPrefix = { 0x12, 0x20 };

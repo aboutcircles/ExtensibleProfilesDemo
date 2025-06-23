@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace ExtensibleProfilesDemo.Model;
+namespace Circles.Profiles.Models;
 
 /// <summary>
 /// One tiny, append-only index per namespace.<br/>

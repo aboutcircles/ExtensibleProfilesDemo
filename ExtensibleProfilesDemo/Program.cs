@@ -1,105 +1,102 @@
 ﻿using System.Text.Json;
-using ExtensibleProfilesDemo.Model;
+using Circles.Profiles.Interfaces;
+using Circles.Profiles.Models;
+using Circles.Profiles.Sdk;
 using Nethereum.Hex.HexConvertors.Extensions;
-using Nethereum.Model;
 using Nethereum.Signer;
 using Nethereum.Util;
 
 namespace ExtensibleProfilesDemo;
 
+/// <summary>
+/// Command-line helper for Circles “extensible profiles”.
+/// All heavy lifting lives in **Circles.Profiles.Sdk** – this file is just glue + UX.
+/// </summary>
 public static class Program
 {
-    private const int ChunkMaxLinks = 100;
+    /* ────────────────────────── shared helpers ───────────────────────── */
+    private static async Task<Profile> LoadOrNewAsync(
+        IProfileStore store,
+        string avatar,
+        CancellationToken ct = default)
+    {
+        return await store.FindAsync(avatar, ct) ?? new Profile();
+    }
+
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+        WriteIndented = true
+    };
+
     private static readonly Sha3Keccack Keccak = new();
 
-
-    /// <summary>
-    /// Calculates and signs a link (Keccak-256, ECDSA, 65-byte r‖s‖v, hex-encoded).
-    /// </summary>
-    private static CustomDataLink SignLink(CustomDataLink link, string privKeyHex)
+    /// <summary>Adds a <see cref="SigningKey"/> to the profile if it isn’t there yet.</summary>
+    private static void EnsureSigningKey(Profile p, string priv)
     {
-        byte[] canon = link.CanonicaliseForSigning(); // RFC 8785 (no “signature”)
-        byte[] hash = Keccak.CalculateHash(canon);
+        var key = new EthECKey(priv);
+        var pkHex = "0x" + key.GetPubKeyNoPrefix().ToHex();
+        var fp = "0x" + Keccak.CalculateHash(pkHex.HexToByteArray())
+            .AsSpan(0, 4).ToArray().ToHex(); // 4-byte fingerprint
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        var key = new EthECKey(privKeyHex);
-        var sig = key.SignAndCalculateV(hash); // EthECDSASignature (r,s,v)
-
-        byte[] rs = sig.To64ByteArray(); // 64-byte r‖s
-        byte v = sig.V[0]; // recovery id (0/1 or 27/28)
-        byte[] full = rs.Concat([v]).ToArray(); // 65 bytes total
-
-        return link with { Signature = "0x" + full.ToHex() };
-    }
-
-
-    private static void EnsureSigningKey(Profile prof, string privKeyHex)
-    {
-        var key = new EthECKey(privKeyHex);
-        string pkHex = "0x" + key.GetPubKeyNoPrefix().ToHex();
-        byte[] fpRaw = Keccak.CalculateHash(pkHex.HexToByteArray());
-        string fp = "0x" + fpRaw.AsSpan(0, 4).ToArray().ToHex(); // 4-byte fingerprint
-        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-        prof.SigningKeys.TryAdd(fp, new SigningKey
+        p.SigningKeys.TryAdd(fp, new SigningKey
         {
             PublicKey = pkHex,
-            ValidFrom = now,
-            ValidTo = null,
-            RevokedAt = null
+            ValidFrom = now
         });
     }
 
-    /* ────────────────── CmdCreate (modified) ────────────────── */
+    /* ───────────────────────────── commands ──────────────────────────── */
 
-    private static async Task CmdCreate(Dictionary<string, string> o, KeyManager km)
+    private static async Task CmdCreate(
+        Dictionary<string, string> o, KeyManager km)
     {
         if (!CheckKey(o, km, out _, out var priv)) return;
-        if (!o.TryGetValue("name", out var name) || !o.TryGetValue("description", out var desc))
+        if (!o.TryGetValue("name", out var name) ||
+            !o.TryGetValue("description", out var desc))
         {
-            Console.WriteLine("create needs --name --description");
+            Console.WriteLine("create needs --name and --description");
             return;
         }
 
-        string address = o.TryGetValue("address", out var a) ? a : new EthECKey(priv).GetPublicAddress();
+        var address = o.TryGetValue("address", out var a)
+            ? a
+            : new EthECKey(priv).GetPublicAddress();
 
-        var prof = new Profile { Name = name, Description = desc };
-        EnsureSigningKey(prof, priv); // ← NEW
+        var profile = new Profile { Name = name, Description = desc };
+        EnsureSigningKey(profile, priv);
 
-        var ipfs = new IpfsService();
-        string cid = await ipfs.AddJsonAsync(JsonSerializer.Serialize(prof, JsonOpts));
+        await using var ipfs = new IpfsStore();
+        var registry = new NameRegistry(priv, Config.RpcUrl);
+        var store = new ProfileStore(ipfs, registry);
 
-        var eth = new NameRegistry(priv);
-        string? tx = await eth.UpdateProfileCidAsync(CidConverter.CidToDigest(cid));
+        var (_, cid) = await store.SaveAsync(profile, priv);
 
-        Console.WriteLine($"profile CID {cid}");
+        Console.WriteLine($"profile CID  {cid}");
         CliLogger.Log(new
         {
-            action = "create", address, profileCid = cid, txHash = tx, ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            action = "create", address, profileCid = cid,
+            ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
         });
     }
 
-    private static async Task CmdSend(Dictionary<string, string> o, KeyManager km)
+    private static async Task CmdSend(
+        Dictionary<string, string> o, KeyManager km)
     {
-        if (!CheckKey(o, km, out _, out var priv))
-        {
-            return;
-        }
+        if (!CheckKey(o, km, out _, out var priv)) return;
 
-        // declare first so the compiler sees them definitely-assigned
-        string recipient = "";
-        string typ = "";
-        string txt = "";
-
-        if (!o.TryGetValue("to", out recipient) ||
-            !o.TryGetValue("type", out typ) ||
-            !o.TryGetValue("text", out txt))
+        if (!o.TryGetValue("to", out var recipient) ||
+            !o.TryGetValue("type", out var typ) ||
+            !o.TryGetValue("text", out var txt))
         {
             Console.WriteLine("send needs --to --type --text");
             return;
         }
 
-        string sender = o.TryGetValue("from", out var fromArg)
-            ? fromArg
+        var sender = o.TryGetValue("from", out var f)
+            ? f
             : new EthECKey(priv).GetPublicAddress();
 
         var msg = new ChatMessage
@@ -111,153 +108,74 @@ public static class Program
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
         };
 
-        var ipfs = new IpfsService();
-        var eth = new NameRegistry(priv);
-        var prof = await LoadOrNew(sender, eth, ipfs);
-        EnsureSigningKey(prof, priv);
+        /* profile + namespace writer */
+        await using var ipfs = new IpfsStore();
+        var registry = new NameRegistry(priv, Config.RpcUrl);
+        var store = new ProfileStore(ipfs, registry);
 
-        string msgCid = await ipfs.AddJsonAsync(JsonSerializer.Serialize(msg, JsonOpts));
+        var profile = await LoadOrNewAsync(store, sender);
 
-        /* ───── namespace index ───── */
-        string ns = recipient.ToLowerInvariant();
+        EnsureSigningKey(profile, priv);
 
-        prof.Namespaces.TryGetValue(ns, out var indexCid);
-        var indexDoc = await LoadIndexDoc(indexCid, ipfs);
-
-        /* choose / rotate chunk */
-        string? headCid = string.IsNullOrWhiteSpace(indexDoc.Head) ? null : indexDoc.Head;
-        var chunk = await LoadChunk(headCid, ipfs);
-
-        if (chunk.Links.Count >= ChunkMaxLinks)
-        {
-            chunk = new NamespaceChunk { Prev = headCid };
-        }
-
-        /* add link */
-        var link = new CustomDataLink
-        {
-            Name = $"msg-{msg.Timestamp}",
-            Cid = msgCid,
-            Encrypted = false,
-            SignedAt = msg.Timestamp,
-            SignerAddress = sender,
-            Nonce = CustomDataLink.NewNonce()
-        };
-        link = SignLink(link, priv);
-        chunk.Links.Add(link);
+        var writer = new NamespaceWriter(profile, recipient, ipfs, new DefaultLinkSigner());
 
         /* persist */
-        string newChunkCid = await SaveChunk(chunk, ipfs);
+        var link = await writer.AddJsonAsync($"msg-{msg.Timestamp}",
+            JsonSerializer.Serialize(msg, JsonOpts), priv);
+        var (_, newProfileCid) = await store.SaveAsync(profile, priv);
 
-        indexDoc.Head = newChunkCid; // ← no CS8852 anymore
-        indexDoc.Entries[link.Name] = newChunkCid;
-        string newIndexCid = await SaveIndexDoc(indexDoc, ipfs);
+        var idxCid = profile.Namespaces[recipient.ToLowerInvariant()];
+        var idxDoc = await Helpers.LoadIndex(idxCid, ipfs);
+        var chunkCid = idxDoc.Entries[link.Name];
 
-        prof.Namespaces[ns] = newIndexCid;
-        string newProfCid = await ipfs.AddJsonAsync(JsonSerializer.Serialize(prof, JsonOpts));
-        string? tx = await eth.UpdateProfileCidAsync(CidConverter.CidToDigest(newProfCid));
-
-        Console.WriteLine($"sent.\n ├─ profile {newProfCid}\n ├─ index   {newIndexCid}\n └─ chunk   {newChunkCid}");
+        Console.WriteLine($"sent.\n ├─ profile {newProfileCid}\n ├─ index   {idxCid}\n └─ chunk   {chunkCid}");
         CliLogger.Log(new
         {
             action = "send",
             from = sender,
             to = recipient,
-            msgCid,
-            chunkCid = newChunkCid,
-            indexCid = newIndexCid,
-            profileCid = newProfCid,
-            txHash = tx,
+            msgCid = link.Cid,
+            chunkCid,
+            indexCid = idxCid,
+            profileCid = newProfileCid,
             ts = msg.Timestamp
         });
     }
 
-    private static async Task CmdLink(Dictionary<string, string> o, KeyManager km)
+    private static async Task CmdLink(
+        Dictionary<string, string> o, KeyManager km)
     {
-        if (!CheckKey(o, km, out _, out var priv))
+        if (!CheckKey(o, km, out _, out var priv)) return;
+
+        if (!o.TryGetValue("ns", out var ns) ||
+            !o.TryGetValue("name", out var name) ||
+            !o.TryGetValue("cid", out var cid))
         {
+            Console.WriteLine("link needs --ns --name --cid");
             return;
         }
 
-        string ns = "";
-        string name = "";
-        string cid = "";
-
-        if (!o.TryGetValue("ns", out ns) ||
-            !o.TryGetValue("name", out name) ||
-            !o.TryGetValue("cid", out cid))
-        {
-            Console.WriteLine("link needs --ns addr --name n --cid cid");
-            return;
-        }
-
-        string target = o.TryGetValue("profile", out var p)
+        var target = o.TryGetValue("profile", out var p)
             ? p
             : new EthECKey(priv).GetPublicAddress();
 
-        var ipfs = new IpfsService();
-        var eth = new NameRegistry(priv);
-        var prof = await LoadOrNew(target, eth, ipfs);
-        EnsureSigningKey(prof, priv);
+        await using var ipfs = new IpfsStore();
+        var registry = new NameRegistry(priv, Config.RpcUrl);
+        var store = new ProfileStore(ipfs, registry);
 
-        ns = ns.ToLowerInvariant();
+        var profile = await LoadOrNewAsync(store, target);
 
-        /* namespace index */
-        prof.Namespaces.TryGetValue(ns, out var indexCid);
-        var indexDoc = await LoadIndexDoc(indexCid, ipfs);
+        EnsureSigningKey(profile, priv);
 
-        /* locate or rotate chunk */
-        NamespaceChunk chunk;
-        if (indexDoc.Entries.TryGetValue(name, out var existingChunkCid))
-        {
-            chunk = await LoadChunk(existingChunkCid, ipfs);
-        }
-        else
-        {
-            string? headCid = string.IsNullOrWhiteSpace(indexDoc.Head) ? null : indexDoc.Head;
-            chunk = await LoadChunk(headCid, ipfs);
-        }
+        var writer = new NamespaceWriter(profile, ns, ipfs, new DefaultLinkSigner());
+        var link = await writer.AttachExistingCidAsync(name, cid, priv);
+        var (_, newProfileCid) = await store.SaveAsync(profile, priv);
 
-        if (chunk.Links.Count >= ChunkMaxLinks)
-        {
-            chunk = new NamespaceChunk { Prev = indexDoc.Head };
-        }
+        var idxCid = profile.Namespaces[ns.ToLowerInvariant()];
+        var idxDoc = await Helpers.LoadIndex(idxCid, ipfs);
+        var chunkCid = idxDoc.Entries[link.Name];
 
-        /* upsert link */
-        var newLink = new CustomDataLink
-        {
-            Name = name,
-            Cid = cid,
-            Encrypted = false,
-            SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            SignerAddress = target,
-            Nonce = CustomDataLink.NewNonce()
-        };
-        newLink = SignLink(newLink, priv);
-
-        int i = chunk.Links.FindIndex(l => l.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-        if (i >= 0)
-        {
-            chunk.Links[i] = newLink;
-        }
-        else
-        {
-            chunk.Links.Add(newLink);
-        }
-
-        /* persist */
-        string newChunkCid = await SaveChunk(chunk, ipfs);
-
-        indexDoc.Head = newChunkCid; // ← mutable now
-        indexDoc.Entries[name] = newChunkCid;
-        string newIndexCid = await SaveIndexDoc(indexDoc, ipfs);
-
-        prof.Namespaces[ns] = newIndexCid;
-        string newProfCid = await ipfs.AddJsonAsync(JsonSerializer.Serialize(prof, JsonOpts));
-        string? tx = await eth.UpdateProfileCidAsync(CidConverter.CidToDigest(newProfCid));
-
-        Console.WriteLine(
-            $"link saved.\n ├─ profile {newProfCid}\n ├─ index   {newIndexCid}\n └─ chunk   {newChunkCid}");
+        Console.WriteLine($"link saved.\n ├─ profile {newProfileCid}\n ├─ index   {idxCid}\n └─ chunk   {chunkCid}");
         CliLogger.Log(new
         {
             action = "link",
@@ -265,154 +183,19 @@ public static class Program
             ns,
             name,
             cid,
-            chunkCid = newChunkCid,
-            indexCid = newIndexCid,
-            profileCid = newProfCid,
-            txHash = tx,
-            ts = newLink.SignedAt
+            chunkCid,
+            indexCid = idxCid,
+            profileCid = newProfileCid,
+            ts = link.SignedAt
         });
     }
 
-    /* ────────────────── chunk helpers (modified) ────────────────── */
-
-    private static async Task<NamespaceChunk> LoadChunk(string? cid, IpfsService ipfs)
-    {
-        if (cid is null) return new NamespaceChunk();
-        string json = await ipfs.CatAsync(cid);
-        if (string.IsNullOrWhiteSpace(json)) return new NamespaceChunk();
-
-        NamespaceChunk chunk;
-        try
-        {
-            chunk = JsonSerializer.Deserialize<NamespaceChunk>(json, JsonOpts)!;
-        }
-        catch
-        {
-            var legacy = JsonSerializer.Deserialize<List<CustomDataLink>>(json, JsonOpts) ?? new();
-            chunk = new NamespaceChunk { Links = legacy };
-        }
-
-        return chunk with
-        {
-            Links = chunk.Links.Where(IsSigValid).ToList() // ← NEW
-        };
-    }
-
-    private static bool IsSigValid(CustomDataLink l)
-    {
-        if (string.IsNullOrEmpty(l.Signature) || !l.Signature.StartsWith("0x"))
-            return false;
-
-        try
-        {
-            byte[] canon = l.CanonicaliseForSigning();
-            byte[] hash = Keccak.CalculateHash(canon);
-
-            // Parse the r|s|v hex string we stored
-            var sig = EthECDSASignatureFactory.ExtractECDSASignature(l.Signature);
-
-            var pub = EthECKey.RecoverFromSignature(sig, hash);
-            return pub?.GetPublicAddress()
-                .Equals(l.SignerAddress, StringComparison.OrdinalIgnoreCase) == true;
-        }
-        catch
-        {
-            return false; // malformed sig ⇒ invalid
-        }
-    }
-
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true
-    };
-
-    public static async Task Main(string[] args)
-    {
-        if (args.Length == 0)
-        {
-            Help();
-            return;
-        }
-
-        string cmd = args[0].ToLowerInvariant();
-        var opts = Parse(args.Skip(1).ToArray());
-        var keys = new KeyManager();
-
-        switch (cmd)
-        {
-            case "keygen":
-                await CmdKeyGen(opts, keys); break;
-            case "keyls":
-                CmdKeyLs(keys); break;
-            case "keyuse":
-                CmdKeyUse(opts, keys); break;
-            case "create":
-                await CmdCreate(opts, keys); break;
-            case "send":
-                await CmdSend(opts, keys); break;
-            case "inbox":
-                await CmdInbox(opts, keys); break;
-            case "link":
-                await CmdLink(opts, keys); break;
-            case "smoke": await CmdSmoke(keys); break;
-            default:
-                Console.WriteLine($"Unknown command: {cmd}");
-                Help();
-                break;
-        }
-    }
-
-    /* ------------ key commands ------------ */
-
-    private static Task CmdKeyGen(Dictionary<string, string> o, KeyManager km)
-    {
-        if (!o.TryGetValue("alias", out string? alias))
-        {
-            Console.WriteLine("keygen needs --alias <name>");
-            return Task.CompletedTask;
-        }
-
-        if (km.GetPrivateKey(alias) is not null)
-        {
-            Console.WriteLine("alias already exists");
-            return Task.CompletedTask;
-        }
-
-        var key = EthECKey.GenerateKey();
-        km.Add(alias, key.GetPrivateKey());
-        Console.WriteLine($"Generated key {alias} (public {key.GetPublicAddress()})");
-        return Task.CompletedTask;
-    }
-
-    private static void CmdKeyLs(KeyManager km)
-    {
-        Console.WriteLine("stored keys:");
-        foreach (var (alias, priv) in km.List())
-        {
-            var pub = new EthECKey(priv).GetPublicAddress();
-            string mark = km.CurrentAlias == alias ? "*" : " ";
-            Console.WriteLine($"{mark} {alias}  {pub}");
-        }
-    }
-
-    private static void CmdKeyUse(Dictionary<string, string> o, KeyManager km)
-    {
-        if (!o.TryGetValue("alias", out string? alias))
-        {
-            Console.WriteLine("keyuse needs --alias <name>");
-            return;
-        }
-
-        km.Use(alias);
-        Console.WriteLine($"current key → {alias}");
-    }
-
-    private static async Task CmdInbox(Dictionary<string, string> o, KeyManager km)
+    private static async Task CmdInbox(
+        Dictionary<string, string> o, KeyManager km, long lastSeen)
     {
         if (!CheckKey(o, km, out _, out var priv)) return;
 
-        string me = o.TryGetValue("me", out var meArg)
+        var me = o.TryGetValue("me", out var meArg)
             ? meArg
             : new EthECKey(priv).GetPublicAddress();
 
@@ -424,41 +207,35 @@ public static class Program
 
         string[] trusted = csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        var eth = new NameRegistry(priv);
-        var ipfs = new IpfsService();
-        var myProfile = await LoadOrNew(me, eth, ipfs);
+        await using var ipfs = new IpfsStore();
+        var registry = new NameRegistry(priv, Config.RpcUrl);
 
         long shown = 0;
         string myNs = me.ToLowerInvariant();
 
         foreach (string sender in trusted)
         {
-            /* ----------- look-up sender’s profile & namespace ----------- */
-            string? profCid = await eth.GetProfileCidAsync(sender);
+            string? profCid = await registry.GetProfileCidAsync(sender);
             if (profCid is null) continue;
 
-            var senderProfile =
-                JsonSerializer.Deserialize<Profile>(await ipfs.CatAsync(profCid), JsonOpts) ?? new Profile();
+            string profJson = await ipfs.CatStringAsync(profCid);
+            var senderProf = JsonSerializer.Deserialize<Profile>(profJson, JsonOpts);
 
-            if (!senderProfile.Namespaces.TryGetValue(myNs, out var indexCid)) continue;
+            if (!senderProf.Namespaces.TryGetValue(myNs, out var idxCid)) continue;
 
-            var indexDoc = await LoadIndexDoc(indexCid, ipfs);
-            if (string.IsNullOrWhiteSpace(indexDoc.Head)) continue; // empty namespace
+            var idxDoc = await Helpers.LoadIndex(idxCid, ipfs);
+            string? cur = idxDoc.Head;
 
-            long lastSeen = myProfile.LastRead.GetValueOrDefault(sender, 0);
-
-            /* ----------- walk chunks newest → old until lastSeen -------- */
-            string? cur = indexDoc.Head;
             while (cur is not null)
             {
-                var chunk = await LoadChunk(cur, ipfs);
+                var chunk = await Helpers.LoadChunk(cur, ipfs);
 
                 foreach (var link in chunk.Links.OrderBy(l => l.SignedAt))
                 {
                     if (link.SignedAt <= lastSeen) continue;
 
-                    var msg = JsonSerializer.Deserialize<ChatMessage>(
-                        await ipfs.CatAsync(link.Cid), JsonOpts);
+                    string msgJson = await ipfs.CatStringAsync(link.Cid);
+                    var msg = JsonSerializer.Deserialize<ChatMessage>(msgJson, JsonOpts);
                     if (msg is null) continue;
 
                     Console.WriteLine($"[{sender}] {msg.Type}@{msg.Timestamp}: {msg.Text}");
@@ -466,67 +243,125 @@ public static class Program
                     shown++;
                 }
 
-                /* optimisation: stop when the oldest link in this chunk is
-                   already older than lastSeen */
                 if (chunk.Links.Any() && chunk.Links.Min(l => l.SignedAt) <= lastSeen)
                     break;
 
                 cur = chunk.Prev;
             }
-
-            myProfile.LastRead[sender] = lastSeen;
         }
 
-        if (shown == 0)
+        if (shown == 0) Console.WriteLine("no new messages");
+    }
+
+    /* ───────────────────── key-management commands ───────────────────── */
+
+    private static Task CmdKeyGen(Dictionary<string, string> o, KeyManager km)
+    {
+        if (!o.TryGetValue("alias", out var alias))
         {
-            Console.WriteLine("no new messages");
+            Console.WriteLine("keygen needs --alias");
+            return Task.CompletedTask;
+        }
+
+        if (km.GetPrivateKey(alias) is not null)
+        {
+            Console.WriteLine("alias already exists");
+            return Task.CompletedTask;
+        }
+
+        var k = EthECKey.GenerateKey();
+        km.Add(alias, k.GetPrivateKey());
+        Console.WriteLine($"generated key {alias} (public {k.GetPublicAddress()})");
+        return Task.CompletedTask;
+    }
+
+    private static void CmdKeyLs(KeyManager km)
+    {
+        Console.WriteLine("stored keys:");
+        foreach (var (alias, priv) in km.List())
+        {
+            var pub = new EthECKey(priv).GetPublicAddress();
+            string m = km.CurrentAlias == alias ? "*" : " ";
+            Console.WriteLine($"{m} {alias,-8} {pub}");
+        }
+    }
+
+    private static void CmdKeyUse(Dictionary<string, string> o, KeyManager km)
+    {
+        if (!o.TryGetValue("alias", out var alias))
+        {
+            Console.WriteLine("keyuse needs --alias");
             return;
         }
 
-        string newProfileCid = await ipfs.AddJsonAsync(JsonSerializer.Serialize(myProfile, JsonOpts));
-        string? tx = await eth.UpdateProfileCidAsync(CidConverter.CidToDigest(newProfileCid));
-
-        Console.WriteLine($"inbox saved, profile CID {newProfileCid}");
-        CliLogger.Log(new
-        {
-            action = "inbox_save",
-            me,
-            profileCid = newProfileCid,
-            newReads = shown,
-            txHash = tx,
-            ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-        });
+        km.Use(alias);
+        Console.WriteLine($"current key → {alias}");
     }
 
-    /* ------------ helpers ------------ */
+    /* ───────────────────── smoke-test (demo helper) ───────────────────── */
 
-    private static async Task<Profile> LoadOrNew(string addr, NameRegistry nameRegistry, IpfsService ipfs)
+    private static async Task SmokeSendAsync(
+        string privKey, string senderAddr, string recipientAddr, string text, KeyManager km)
     {
-        string? cid = await nameRegistry.GetProfileCidAsync(addr);
-        if (cid is null)
+        await CmdSend(new Dictionary<string, string>
         {
-            return new();
-        }
-
-        var catResult = await ipfs.CatAsync(cid);
-        var deserializedResult = JsonSerializer.Deserialize<Profile>(catResult, JsonOpts);
-
-        if (deserializedResult is null)
-        {
-            throw new Exception("invalid profile data or cid");
-        }
-
-        return deserializedResult;
+            ["key"] = km.List().First(a => km.GetPrivateKey(a.alias) == privKey).alias, // find alias
+            ["from"] = senderAddr,
+            ["to"] = recipientAddr,
+            ["type"] = "ping",
+            ["text"] = text
+        }, km);
     }
 
-    // returns true if we found a key
+    private static async Task CmdSmoke(KeyManager km)
+    {
+        /* we expect the aliases “1”, “2”, “alice” to exist */
+        var required = new[] { "alice", "bob", "charly" };
+        foreach (var a in required)
+            if (km.GetPrivateKey(a) is null)
+            {
+                Console.WriteLine($"❌ smoke-test needs key alias “{a}” – run keygen first");
+                return;
+            }
+
+        var privOf = required.ToDictionary(a => a, a => km.GetPrivateKey(a)!);
+        var addrOf = privOf.ToDictionary(kv => kv.Key, kv => new EthECKey(kv.Value).GetPublicAddress());
+
+        /* quick ping-pong */
+        await SmokeSendAsync(privOf["alice"], addrOf["alice"], addrOf["bob"], "hi alice→bob", km);
+        await SmokeSendAsync(privOf["bob"], addrOf["bob"], addrOf["alice"], "hi bob→alice", km);
+        await SmokeSendAsync(privOf["alice"], addrOf["alice"], addrOf["alice"], "gm 👋", km);
+        await SmokeSendAsync(privOf["alice"], addrOf["alice"], addrOf["alice"], "hey!", km);
+        await SmokeSendAsync(privOf["alice"], addrOf["alice"], addrOf["bob"], "yo bob", km);
+        await SmokeSendAsync(privOf["bob"], addrOf["bob"], addrOf["alice"], "back at ya", km);
+
+        /* read-back for each participant */
+        foreach (var me in required)
+        {
+            string trustCsv = string.Join(',', required.Where(a => a != me).Select(a => addrOf[a]));
+            await CmdInbox(new Dictionary<string, string>
+            {
+                ["key"] = me,
+                ["me"] = addrOf[me],
+                ["trust"] = trustCsv
+            }, km, 0);
+        }
+
+        Console.WriteLine("✅ smoke-test finished without errors");
+    }
+
+    /* ───────────────────────── plumbing / UX ─────────────────────────── */
+
     private static bool CheckKey(
         Dictionary<string, string> o,
         KeyManager km,
         out string alias,
         out string priv)
     {
-        alias = o.TryGetValue("key", out string? a) ? a : km.CurrentAlias ?? "";
+        alias = o.TryGetValue("key", out var a)
+            ? a
+            : km.CurrentAlias ?? "";
+
         if (alias.Length == 0)
         {
             Console.WriteLine("no key selected – run keygen / keyuse or pass --key");
@@ -549,151 +384,22 @@ public static class Program
         var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < argv.Length;)
         {
-            string tok = argv[i];
+            var tok = argv[i];
             if (!tok.StartsWith("--"))
             {
                 i++;
                 continue;
             }
 
-            string key = tok[2..];
-            string val = (i + 1 < argv.Length && !argv[i + 1].StartsWith("--")) ? argv[i + 1] : "true";
+            var key = tok[2..];
+            var val = (i + 1 < argv.Length && !argv[i + 1].StartsWith("--"))
+                ? argv[i + 1]
+                : "true";
             d[key] = val;
             i += val == "true" ? 1 : 2;
         }
 
         return d;
-    }
-
-    private static async Task<NameIndexDoc> LoadIndexDoc(string? cid, IpfsService ipfs)
-    {
-        if (string.IsNullOrWhiteSpace(cid))
-        {
-            return new NameIndexDoc();
-        }
-
-        string json = await ipfs.CatAsync(cid);
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return new NameIndexDoc();
-        }
-
-        return JsonSerializer.Deserialize<NameIndexDoc>(json, JsonOpts) ?? new NameIndexDoc();
-    }
-
-    private static Task<string> SaveIndexDoc(NameIndexDoc doc, IpfsService ipfs) =>
-        ipfs.AddJsonAsync(JsonSerializer.Serialize(doc, JsonOpts));
-
-/* one-shot chunk pin, no ahead-of-time CID juggling */
-    private static Task<string> SaveChunk(NamespaceChunk chunk, IpfsService ipfs) =>
-        ipfs.AddJsonAsync(JsonSerializer.Serialize(chunk, JsonOpts));
-
-    private static async Task SmokeSendAsync(
-        string privKey,
-        string senderAddr,
-        string recipientAddr,
-        string text)
-    {
-        var ipfs = new IpfsService();
-        var eth = new NameRegistry(privKey);
-
-        /* ---- build + pin chat-message ---- */
-        var msg = new ChatMessage
-        {
-            From = senderAddr,
-            To = recipientAddr,
-            Type = "smoke",
-            Text = text,
-            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-        };
-        string msgCid = await ipfs.AddJsonAsync(JsonSerializer.Serialize(msg, JsonOpts));
-
-        /* ---- load or create sender profile ---- */
-        var profile = await LoadOrNew(senderAddr, eth, ipfs);
-        EnsureSigningKey(profile, privKey);
-
-        /* ---- namespace index handling ---- */
-        string ns = recipientAddr.ToLowerInvariant();
-        profile.Namespaces.TryGetValue(ns, out var idxCid);
-        var idxDoc = await LoadIndexDoc(idxCid, ipfs);
-        var headChunk = await LoadChunk(string.IsNullOrWhiteSpace(idxDoc.Head) ? null : idxDoc.Head, ipfs);
-
-        if (headChunk.Links.Count >= ChunkMaxLinks)
-            headChunk = new NamespaceChunk { Prev = idxDoc.Head };
-
-        var link = new CustomDataLink
-        {
-            Name = $"smoke-{msg.Timestamp}",
-            Cid = msgCid,
-            Encrypted = false,
-            SignedAt = msg.Timestamp,
-            SignerAddress = senderAddr,
-            Nonce = CustomDataLink.NewNonce()
-        };
-        link = SignLink(link, privKey);
-        headChunk.Links.Add(link);
-
-        /* ---- persist chunk, index, profile ---- */
-        string newChunkCid = await SaveChunk(headChunk, ipfs);
-
-        idxDoc.Head = newChunkCid;
-        idxDoc.Entries[link.Name] = newChunkCid;
-        string newIdxCid = await SaveIndexDoc(idxDoc, ipfs);
-
-        profile.Namespaces[ns] = newIdxCid;
-        string newProfCid = await ipfs.AddJsonAsync(JsonSerializer.Serialize(profile, JsonOpts));
-
-        await eth.UpdateProfileCidAsync(CidConverter.CidToDigest(newProfCid));
-
-        Console.WriteLine($"smoke: {senderAddr[..10]}… → {recipientAddr[..10]}…  ok");
-    }
-
-    private static async Task CmdSmoke(KeyManager km)
-    {
-        // aliases that must already exist – we just reuse them
-        var aliases = new[] { "1", "2", "alice" };
-
-        // make sure we have every key
-        foreach (var a in aliases.Where(a => km.GetPrivateKey(a) is null))
-        {
-            Console.WriteLine($"❌ smoke-test needs key alias “{a}” – run keygen / keyuse first");
-            return;
-        }
-
-        // helper: alias → priv / addr
-        var privOf = aliases.ToDictionary(a => a, a => km.GetPrivateKey(a)!);
-        var addrOf = privOf.ToDictionary(kv => kv.Key, kv => new EthECKey(kv.Value).GetPublicAddress());
-
-        async Task Send(string from, string to, string text) =>
-            await CmdSend(new Dictionary<string, string>
-            {
-                ["key"] = from,
-                ["from"] = addrOf[from],
-                ["to"] = addrOf[to],
-                ["type"] = "ping",
-                ["text"] = text
-            }, km);
-
-        await Send("1", "2", "hi 1→2");
-        await Send("2", "1", "hi 2→1");
-        await Send("alice", "1", "gm 👋");
-        await Send("1", "alice", "hey!");
-        await Send("alice", "2", "yo 2");
-        await Send("2", "alice", "back at ya");
-
-        // read-back verification phase
-        foreach (var me in aliases)
-        {
-            string trustCsv = string.Join(',', aliases.Where(a => a != me).Select(a => addrOf[a]));
-            await CmdInbox(new Dictionary<string, string>
-            {
-                ["key"] = me,
-                ["me"] = addrOf[me],
-                ["trust"] = trustCsv
-            }, km);
-        }
-
-        Console.WriteLine("✅ smoke-test finished without errors");
     }
 
     private static void Help()
@@ -706,6 +412,37 @@ public static class Program
         Console.WriteLine(" send   --from a --to b --type t --text txt     [--key k]");
         Console.WriteLine(" inbox  --me a --trust addr1,addr2              [--key k]");
         Console.WriteLine(" link   --ns addr --name n --cid cid  [--profile addr] [--key k]");
-        Console.WriteLine(" smoke                              quick ping-pong test");
+        Console.WriteLine(" smoke                              quick ping-pong demo");
+    }
+
+    /* ───────────────────────── entry-point ───────────────────────────── */
+
+    public static async Task Main(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Help();
+            return;
+        }
+
+        var cmd = args[0].ToLowerInvariant();
+        var opts = Parse(args.Skip(1).ToArray());
+        var keys = new KeyManager();
+
+        switch (cmd)
+        {
+            case "keygen": await CmdKeyGen(opts, keys); break;
+            case "keyls": CmdKeyLs(keys); break;
+            case "keyuse": CmdKeyUse(opts, keys); break;
+            case "create": await CmdCreate(opts, keys); break;
+            case "send": await CmdSend(opts, keys); break;
+            case "inbox": await CmdInbox(opts, keys, 0); break;
+            case "link": await CmdLink(opts, keys); break;
+            case "smoke": await CmdSmoke(keys); break;
+            default:
+                Console.WriteLine($"unknown command: {cmd}");
+                Help();
+                break;
+        }
     }
 }

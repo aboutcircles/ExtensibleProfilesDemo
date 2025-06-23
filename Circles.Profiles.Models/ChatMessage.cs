@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace ExtensibleProfilesDemo.Model;
+namespace Circles.Profiles.Models;
 
 public sealed record ChatMessage
 {
