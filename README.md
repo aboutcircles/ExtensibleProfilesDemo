@@ -11,7 +11,7 @@ From there you can:
 In other words: you get extensible, user‑controlled metadata without new smart‑contracts or heavy gas costs.  
 The code here is a **reference implementation** plus a CLI demo – good enough to prototype, not yet production‑hardened.
 
-## 1. Repository Topology (absolute paths, commit 2675dc2)
+## 1. Repository Topology
 
 | Folder | Assembly | Purpose | Build Target |
 |--------|----------|---------|--------------|
