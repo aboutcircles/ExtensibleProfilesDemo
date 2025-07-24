@@ -1,7 +1,8 @@
 # Circles Profiles – Proof‑of‑Concept SDK (v1.1 schema)
 
 Circles Profiles turn a plain EOA address on **Gnosis Chain** into a living, self‑describing “mini‑database”.  
-Everything heavier than 32 bytes lives off‑chain on **IPFS**. A single on‑chain registry entry tells the world where to start reading.  
+Everything heavier than 32 bytes lives off‑chain on **IPFS**. A single on‑chain registry entry tells the world where to
+start reading.  
 From there you can:
 
 * attach signed data blobs (CIDs),
@@ -13,13 +14,13 @@ The code here is a **reference implementation** plus a CLI demo – good enough 
 
 ## 1. Repository Topology
 
-| Folder | Assembly | Purpose | Build Target |
-|--------|----------|---------|--------------|
-| `Circles.Profiles.Models` | `Circles.Profiles.Models` | immutable DTOs that define the JSON shape persisted to IPFS and exchanged across language boundaries. No runtime dependencies outside BCL. | `net9.0` |
-| `Circles.Profiles.Interfaces` | `Circles.Profiles.Interfaces` | abstraction layer (service and helper interfaces only). Used to decouple SDK from specific storage / registry back‑ends. | `net9.0` |
-| `Circles.Profiles.Sdk` | `Circles.Profiles.Sdk` | reference implementation: IPFS HTTP 0.18 client + Gnosis Name‑Registry interaction via *Nethereum* 6.0‑preview. | `net9.0` |
-| `Circles.Profiles.Sdk.Tests` | n/a (test) | NUnit 3.15 functional and unit tests (≈ 250 assertions, deterministic by design). | `net9.0` |
-| `ExtensibleProfilesDemo` | `ExtensibleProfilesDemo` | CLI demonstrating end‑to‑end message exchange using SDK. UX intentionally minimal (plain stdout). | `net9.0` |
+| Folder                        | Assembly                      | Purpose                                                                                                                                    | Build Target |
+|-------------------------------|-------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|--------------|
+| `Circles.Profiles.Models`     | `Circles.Profiles.Models`     | immutable DTOs that define the JSON shape persisted to IPFS and exchanged across language boundaries. No runtime dependencies outside BCL. | `net9.0`     |
+| `Circles.Profiles.Interfaces` | `Circles.Profiles.Interfaces` | abstraction layer (service and helper interfaces only). Used to decouple SDK from specific storage / registry back‑ends.                   | `net9.0`     |
+| `Circles.Profiles.Sdk`        | `Circles.Profiles.Sdk`        | reference implementation: IPFS HTTP 0.18 client + Gnosis Name‑Registry interaction via *Nethereum* 6.0‑preview.                            | `net9.0`     |
+| `Circles.Profiles.Sdk.Tests`  | n/a (test)                    | NUnit 3.15 functional and unit tests (≈ 250 assertions, deterministic by design).                                                          | `net9.0`     |
+| `ExtensibleProfilesDemo`      | `ExtensibleProfilesDemo`      | CLI demonstrating end‑to‑end message exchange using SDK. UX intentionally minimal (plain stdout).                                          | `net9.0`     |
 
 > **Build determinism:** all projects compile with `dotnet build -c Release` under .NET 9.0.  
 > **No external NuGet feeds** are needed beyond `nuget.org`.
@@ -28,23 +29,25 @@ The code here is a **reference implementation** plus a CLI demo – good enough 
 
 ## 2. External System Contract
 
-### 2.1 Name‑Registry (Solidity 0.8)
+### 2.1 Name‑Registry
 
-* **Network**  Gnosis Chain (a.k.a. Gnosis Mainnet / former xDai)  
-* **Address**  `0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474`  
-* **ABI**  embedded verbatim in `Circles.Profiles.Sdk/NameRegistry.cs`, constant `Abi.ContractAbi` (2 functions).  
-* **Required JSON‑RPC methods** – `eth_call`, `eth_sendRawTransaction`, `eth_getTransactionReceipt`, `eth_chainId`, `eth_blockNumber`, `net_version`.  
+* **Network**  Gnosis Chain (a.k.a. Gnosis Mainnet / former xDai)
+* **Address**  `0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474`
+* **ABI**  embedded verbatim in `Circles.Profiles.Sdk/NameRegistry.cs`, constant `Abi.ContractAbi` (2 functions).
+* **Required JSON‑RPC methods** – `eth_call`, `eth_sendRawTransaction`, `eth_getTransactionReceipt`, `eth_chainId`,
+  `eth_blockNumber`, `net_version`.
 
-| Function | Visibility | State mutability | Gas impact | Notes |
-|----------|------------|------------------|-----------|-------|
-| `getMetadataDigest(address)` | `external view` | `view` | ≈ 2 600 gas | returns `bytes32` (zero‑filled when unset). |
-| `updateMetadataDigest(bytes32)` | `external` | `nonpayable` | 35 000–40 000 gas (EIP‑1559 baseline) | caller **must** be the avatar address. |
+| Function                        | Visibility      | State mutability | Gas impact                            | Notes                                       |
+|---------------------------------|-----------------|------------------|---------------------------------------|---------------------------------------------|
+| `getMetadataDigest(address)`    | `external view` | `view`           | ≈ 2 600 gas                           | returns `bytes32` (zero‑filled when unset). |
+| `updateMetadataDigest(bytes32)` | `external`      | `nonpayable`     | 35 000–40 000 gas (EIP‑1559 baseline) | caller **must** be the avatar address.      |
 
 ### 2.2 IPFS
 
-* The SDK only targets the HTTP API (`/api/v0/...`).  
-* Default base URL is `http://127.0.0.1:5001`; override via `IpfsStore` ctor argument.  
-* **Pinning semantics**: every `Add*Async(*, pin: true)` call sets both `pin=true` and `wrap=false`. Caller is responsible for cluster replication and GC pin‑protection.  
+* The SDK only targets the HTTP API (`/api/v0/...`).
+* Default base URL is `http://127.0.0.1:5001`; override via `IpfsStore` ctor argument.
+* **Pinning semantics**: every `Add*Async(*, pin: true)` call sets both `pin=true` and `wrap=false`. Caller is
+  responsible for cluster replication and GC pin‑protection.
 * `CalcCidAsync` uses `only-hash=true` to avoid network overhead.
 
 ---
@@ -96,7 +99,7 @@ The code here is a **reference implementation** plus a CLI demo – good enough 
 ### 3.4 `CustomDataLink` (signable payload)
 
 | Field                      | Type                  | Value source                      | In canonicalised hash?                          |
-| -------------------------- | --------------------- | --------------------------------- | ----------------------------------------------- |
+|----------------------------|-----------------------|-----------------------------------|-------------------------------------------------|
 | `name`                     | string                | caller                            | **yes**                                         |
 | `cid`                      | string                | caller or `IpfsStore.Add*` return | **yes**                                         |
 | `encrypted`                | bool                  | caller                            | **yes**                                         |
@@ -130,7 +133,8 @@ Signature verification fails if:
 
 ### 4.2 `INameRegistry`
 
-*`UpdateProfileCidAsync`* requires avatar to sign the tx; the SDK derives the avatar from `EthECKey(priv).GetPublicAddress()` and injects it into `FunctionMessage.FromAddress`.
+*`UpdateProfileCidAsync`* requires avatar to sign the tx; the SDK derives the avatar from
+`EthECKey(priv).GetPublicAddress()` and injects it into `FunctionMessage.FromAddress`.
 
 ### 4.3 `INamespaceWriter`
 
@@ -150,7 +154,8 @@ All mutators are idempotent on caller crash: partially written chunks are never 
 1. **Cryptographic failures** – throw `ArgumentException` or `InvalidOperationException`.
 2. **Remote IO (IPFS / RPC)** – bubble the underlying `HttpRequestException`.
 3. **CID validation** – `CidConverter.CidToDigest` throws `ArgumentException` on length or prefix mismatch.
-4. **Thread‑safety** – `NamespaceWriter` is *not* thread‑safe; guard with external locks if concurrent writes are possible.
+4. **Thread‑safety** – `NamespaceWriter` is *not* thread‑safe; guard with external locks if concurrent writes are
+   possible.
 5. **Cancellation** – every async method exposes `CancellationToken ct` (default `default`). No silent swallowing.
 
 ---
@@ -179,7 +184,7 @@ All mutators are idempotent on caller crash: partially written chunks are never 
 ## 8. Migration & Compatibility Rules
 
 | Change vector               | Backwards compatible?                  | Mitigation                            |
-| --------------------------- | -------------------------------------- | ------------------------------------- |
+|-----------------------------|----------------------------------------|---------------------------------------|
 | Increase `schemaVersion`    | **No** – clients must gate on version. | bump major, provide converter.        |
 | Increase `ChunkMaxLinks`    | **Yes** – readers ignore chunk length. | none.                                 |
 | Add optional fields to DTOs | **Yes**                                | JSON unknown‑field tolerance enabled. |
