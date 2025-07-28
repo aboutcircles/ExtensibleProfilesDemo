@@ -5,28 +5,34 @@ using Circles.Profiles.Models;
 namespace Circles.Profiles.Sdk;
 
 /// <summary>
-/// Shared, low-level helpers for namespace chunks / indices.
+/// Shared, low‑level helpers for namespace chunks / indices.<br/>
 /// *Not* public API – the SDK layers call this internally.
 /// </summary>
 public static class Helpers
 {
-    public const int ChunkMaxLinks = 100; // keep in one place
+    public const int ChunkMaxLinks = 100;
+    public const long DefaultChainId = 100; // Gnosis Chain (0x64)
 
-    private static readonly JsonSerializerOptions JsonOpts = new()
+    public static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = false
     };
 
+    /// <summary>
+    /// Loads an index document from IPFS.<br/>
+    /// </summary>
     public static async Task<NameIndexDoc> LoadIndex(
         string? cid,
         IIpfsStore ipfs,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(cid))
-            return new NameIndexDoc();
+        {
+            throw new ArgumentException("CID is missing", nameof(cid));
+        }
 
-        using var s = await ipfs.CatAsync(cid, ct);
+        await using var s = await ipfs.CatAsync(cid, ct);
         return await JsonSerializer.DeserializeAsync<NameIndexDoc>(s, JsonOpts, ct)
                ?? new NameIndexDoc();
     }
@@ -39,11 +45,21 @@ public static class Helpers
         if (string.IsNullOrWhiteSpace(cid))
             return new NamespaceChunk();
 
-        using var stream = await ipfs.CatAsync(cid, ct);
-        var chunk = await JsonSerializer.DeserializeAsync<NamespaceChunk>(stream, JsonOpts, ct);
+        await using var stream = await ipfs.CatAsync(cid, ct);
 
-        // never throw: fall back to empty chunk on bad JSON
-        return chunk ?? new NamespaceChunk();
+        try
+        {
+            var chunk = await JsonSerializer.DeserializeAsync<NamespaceChunk>(stream, JsonOpts, ct);
+            if (chunk is null)
+                throw new JsonException("Deserialised chunk is null");
+
+            return chunk;
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            // Preserve the CID in the exception so ops can locate & fix the pin
+            throw new InvalidDataException($"Invalid NamespaceChunk JSON in CID {cid}", ex);
+        }
     }
 
     internal static Task<string> SaveChunk(

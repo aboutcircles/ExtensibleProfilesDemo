@@ -8,8 +8,7 @@ namespace Circles.Profiles.Sdk.Tests;
 [TestFixture]
 public class InboxSimulationTests
 {
-    private readonly string _aPriv = Nethereum.Signer.EthECKey.GenerateKey().GetPrivateKey();
-    private readonly string _bPriv = Nethereum.Signer.EthECKey.GenerateKey().GetPrivateKey();
+    private readonly string _bPriv = EthECKey.GenerateKey().GetPrivateKey();
 
     [Test]
     public async Task Alice_Sees_Messages_From_Bob_In_Correct_Order()
@@ -20,13 +19,13 @@ public class InboxSimulationTests
         var aliceProfile = new Profile();
         var bobProfile = new Profile();
 
-        var a2b = new NamespaceWriter(aliceProfile, /*nsKey*/"Bob", store, new DefaultLinkSigner());
-        var b2a = new NamespaceWriter(bobProfile, /*nsKey*/"Alice", store, new DefaultLinkSigner());
+        _ = await NamespaceWriter.CreateAsync(aliceProfile, /*nsKey*/"Bob", store, new DefaultLinkSigner());
+        var b2A = await NamespaceWriter.CreateAsync(bobProfile, /*nsKey*/"Alice", store, new DefaultLinkSigner());
 
         /* ------- Bob sends two messages ------- */
-        await b2a.AddJsonAsync("msg-1", """{"txt":"hi"}""", _bPriv);
+        await b2A.AddJsonAsync("msg-1", """{"txt":"hi"}""", _bPriv);
         await Task.Delay(10);
-        await b2a.AddJsonAsync("msg-2", """{"txt":"sup"}""", _bPriv);
+        await b2A.AddJsonAsync("msg-2", """{"txt":"sup"}""", _bPriv);
 
         /* -------- Alice’s “inbox” walk -------- */
         var idxCid = bobProfile.Namespaces["alice"];
@@ -73,11 +72,10 @@ public class InboxSimulationTests
         var bAddr = new EthECKey(bPriv).GetPublicAddress();
 
         // Each user has their own Profile object
-        var alice = new Profile { Name = "Alice", Description = "desc" };
         var bob = new Profile { Name = "Bob", Description = "desc" };
 
         // Bob sends a message to Alice (the normal use-case)
-        var bobToAliceWriter = new NamespaceWriter(bob, aAddr, ipfs, new DefaultLinkSigner());
+        var bobToAliceWriter = await NamespaceWriter.CreateAsync(bob, aAddr, ipfs, new DefaultLinkSigner());
         var msgObj = new ChatMessage
         {
             From = bAddr,
@@ -128,8 +126,7 @@ public class InboxSimulationTests
                 foreach (var link in chunk.Links)
                 {
                     var rawMsg = await ipfs.CatStringAsync(link.Cid);
-                    var chatMsg = JsonSerializer.Deserialize<ChatMessage>(rawMsg,
-                        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                    var chatMsg = JsonSerializer.Deserialize<ChatMessage>(rawMsg, Helpers.JsonOpts);
                     if (chatMsg is not null && chatMsg.Text == "hello alice, from bob")
                     {
                         foundMessage = true;

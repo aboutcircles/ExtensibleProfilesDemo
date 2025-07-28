@@ -1,59 +1,47 @@
 using System.Buffers;
+using System.Globalization;
 using System.Text.Json;
 using Circles.Profiles.Models;
 
 namespace Circles.Profiles.Sdk;
 
+/// <summary>
+/// RFC 8785‑compatible canonical JSON *without* the <c>signature</c> field.
+/// • Duplicate properties → <see cref="JsonException"/>  
+/// • Numbers normalised to shortest‑round‑trip form  
+/// • Stable across runtimes & cultures
+/// </summary>
 public static class CanonicalJson
 {
-    /// <summary>
-    /// RFC 8785-compatible canonical UTF-8 **without** the “signature” field.
-    /// </summary>
     public static byte[] CanonicaliseWithoutSignature(CustomDataLink link)
     {
-        // serialise once – we'll stream it back out immediately
         using var doc = JsonDocument.Parse(JsonSerializer.Serialize(link));
 
-        var buffer = new ArrayBufferWriter<byte>();
-        using var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions
-        {
-            SkipValidation = true // our input is already valid JSON
-        });
+        var buf = new ArrayBufferWriter<byte>();
+        using var w = new Utf8JsonWriter(buf, new JsonWriterOptions { SkipValidation = true });
 
-        WriteElement(doc.RootElement, writer, skipSignature: true);
-        writer.Flush();
-
-        return buffer.WrittenSpan.ToArray();
+        Write(doc.RootElement, w, skipSignature: true);
+        w.Flush();
+        return buf.WrittenSpan.ToArray();
     }
 
-    private static void WriteElement(JsonElement el, Utf8JsonWriter w, bool skipSignature)
+    /* ───────────────────── helpers ───────────────────── */
+
+    private static void Write(JsonElement el, Utf8JsonWriter w, bool skipSignature)
     {
         switch (el.ValueKind)
         {
-            case JsonValueKind.Object:
-                WriteObject(el, w, skipSignature);
-                break;
-
-            case JsonValueKind.Array:
-                WriteArray(el, w, skipSignature);
-                break;
-
-            case JsonValueKind.String:
-                w.WriteStringValue(el.GetString());
-                break;
-
-            case JsonValueKind.Number:
-                w.WriteRawValue(el.GetRawText());
-                break;
-
+            case JsonValueKind.Object: WriteObject(el, w, skipSignature); break;
+            case JsonValueKind.Array: WriteArray(el, w, skipSignature); break;
+            case JsonValueKind.String: w.WriteStringValue(el.GetString()); break;
+            case JsonValueKind.Number: WriteNumber(el, w); break;
             case JsonValueKind.True:
             case JsonValueKind.False:
             case JsonValueKind.Null:
                 w.WriteRawValue(el.GetRawText());
                 break;
-
             default:
-                throw new NotSupportedException($"Unsupported kind {el.ValueKind}");
+                throw new NotSupportedException($"unsupported kind {el.ValueKind}");
         }
     }
 
@@ -61,15 +49,15 @@ public static class CanonicalJson
     {
         w.WriteStartObject();
 
-        foreach (var prop in obj.EnumerateObject().OrderBy(p => p.Name, StringComparer.Ordinal))
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var p in obj.EnumerateObject().OrderBy(p => p.Name, StringComparer.Ordinal))
         {
-            if (skipSignature && prop.NameEquals("signature"))
-            {
-                continue;
-            }
+            if (skipSignature && p.NameEquals("signature")) continue;
+            if (!seen.Add(p.Name))
+                throw new JsonException($"duplicate property \"{p.Name}\"");
 
-            w.WritePropertyName(prop.Name); // already escaped
-            WriteElement(prop.Value, w, skipSignature);
+            w.WritePropertyName(p.Name);
+            Write(p.Value, w, skipSignature);
         }
 
         w.WriteEndObject();
@@ -78,11 +66,29 @@ public static class CanonicalJson
     private static void WriteArray(JsonElement arr, Utf8JsonWriter w, bool skipSignature)
     {
         w.WriteStartArray();
-        foreach (var item in arr.EnumerateArray())
+        foreach (var itm in arr.EnumerateArray())
+            Write(itm, w, skipSignature);
+        w.WriteEndArray();
+    }
+
+    private static void WriteNumber(JsonElement el, Utf8JsonWriter w)
+    {
+        if (el.TryGetInt64(out long i))
         {
-            WriteElement(item, w, skipSignature);
+            w.WriteNumberValue(i);
+            return;
         }
 
-        w.WriteEndArray();
+        if (el.TryGetDouble(out double d))
+        {
+            w.WriteNumberValue(d);
+            return;
+        }
+
+        // lossless fallback for big integers
+        var raw = el.GetRawText();
+        if (!decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var dec))
+            throw new JsonException($"unsupported number format: {raw}");
+        w.WriteNumberValue(dec);
     }
 }

@@ -15,6 +15,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documents", "Documents", "{
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.RealSafeE2E", "Circles.RealSafeE2E\Circles.RealSafeE2E.csproj", "{5E09C14D-6E1B-4976-970A-5A463DA5C4B8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,5 +43,9 @@ Global
 		{883ED8DD-AFE2-4954-A328-BBD35F75172E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{883ED8DD-AFE2-4954-A328-BBD35F75172E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{883ED8DD-AFE2-4954-A328-BBD35F75172E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E09C14D-6E1B-4976-970A-5A463DA5C4B8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E09C14D-6E1B-4976-970A-5A463DA5C4B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E09C14D-6E1B-4976-970A-5A463DA5C4B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E09C14D-6E1B-4976-970A-5A463DA5C4B8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

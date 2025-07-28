@@ -1,6 +1,4 @@
-// Tests/Helpers/NameRegistryMock.cs
-
-using Circles.Sdk;
+using Circles.Profiles.Interfaces;
 using Moq;
 
 namespace Circles.Profiles.Sdk.Tests.Mocks;

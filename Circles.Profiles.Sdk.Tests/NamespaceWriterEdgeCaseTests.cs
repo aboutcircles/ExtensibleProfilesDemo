@@ -8,19 +8,19 @@ public class NamespaceWriterEdgeCaseTests
 {
     private readonly string _priv = Nethereum.Signer.EthECKey.GenerateKey().GetPrivateKey();
 
-    private static (Profile p, InMemoryIpfsStore store, NamespaceWriter w)
-        Boot(string nsKey, string priv)
+    private static async Task<(Profile p, InMemoryIpfsStore store, NamespaceWriter w)>
+        Boot(string nsKey)
     {
         var p = new Profile { Name = "X", Description = "Y" };
         var s = new InMemoryIpfsStore();
-        var w = new NamespaceWriter(p, nsKey, s, new DefaultLinkSigner());
+        var w = await NamespaceWriter.CreateAsync(p, nsKey, s, new DefaultLinkSigner());
         return (p, s, w);
     }
 
     [Test]
     public async Task DuplicateLogicalName_Replaces_Older_Link()
     {
-        var (_, store, w) = Boot("Carol", _priv);
+        var (_, store, w) = await Boot("Carol");
 
         var a = await w.AddJsonAsync("dup", """{"v":1}""", _priv);
         await Task.Delay(5); // ensure timestamp difference
@@ -36,7 +36,7 @@ public class NamespaceWriterEdgeCaseTests
     }
 
     [Test]
-    public void AttachExistingCidAsync_NullName_Throws()
-        => Assert.ThrowsAsync<ArgumentNullException>(() =>
-            Boot("k", _priv).w.AttachExistingCidAsync(null!, "cid", _priv));
+    public Task AttachExistingCidAsync_NullName_Throws()
+        => Task.FromResult(Assert.ThrowsAsync<ArgumentNullException>(async () =>
+            await (await Boot("k")).w.AttachExistingCidAsync(null!, "cid", _priv)));
 }

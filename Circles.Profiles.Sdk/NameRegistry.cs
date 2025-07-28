@@ -1,52 +1,28 @@
-using Circles.Sdk;
-using Nethereum.ABI.FunctionEncoding;
+using Circles.Profiles.Interfaces;
 using Nethereum.ABI.FunctionEncoding.Attributes;
 using Nethereum.Contracts;
-using Nethereum.JsonRpc.Client;
+using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Web3;
 
 namespace Circles.Profiles.Sdk;
 
 file static class Abi
 {
-    public const string ContractAbi = @"[
-                                           {
-                                             ""type"": ""function"",
-                                             ""name"": ""updateMetadataDigest"",
-                                             ""inputs"": [
-                                               {
-                                                 ""name"": ""_metadataDigest"",
-                                                 ""type"": ""bytes32"",
-                                                 ""internalType"": ""bytes32""
-                                               }
-                                             ],
-                                             ""outputs"": [],
-                                             ""stateMutability"": ""nonpayable""
-                                           }, {
-                                             ""type"": ""function"",
-                                             ""name"": ""getMetadataDigest"",
-                                             ""inputs"": [
-                                               {
-                                                 ""name"": ""_avatar"",
-                                                 ""type"": ""address"",
-                                                 ""internalType"": ""address""
-                                               }
-                                             ],
-                                             ""outputs"": [
-                                               {
-                                                 ""name"": """",
-                                                 ""type"": ""bytes32"",
-                                                 ""internalType"": ""bytes32""
-                                               }
-                                             ],
-                                             ""stateMutability"": ""view""
-                                           }
-                                         ]";
+    public const string ContractAbi = """
+                                      [
+                                        {"type":"function","name":"updateMetadataDigest",
+                                         "inputs":[{"type":"bytes32","name":"_metadataDigest"}],
+                                         "outputs":[],"stateMutability":"nonpayable"},
+                                        {"type":"function","name":"getMetadataDigest",
+                                         "inputs":[{"type":"address","name":"_avatar"}],
+                                         "outputs":[{"type":"bytes32"}],
+                                         "stateMutability":"view"}
+                                      ]
+                                      """;
 
     public const string ContractAddress = "0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474";
 }
 
-/* DTO used by Nethereum */
 [Function("updateMetadataDigest")]
 file sealed class UpdateDigest : FunctionMessage
 {
@@ -54,45 +30,57 @@ file sealed class UpdateDigest : FunctionMessage
     public byte[] MetadataDigest { get; set; } = [];
 }
 
+/// <summary>
+/// On‑chain name‑registry client with a guard that prevents
+/// “EOA tries to update Safe profile” foot‑guns. 
+/// </summary>
 public sealed class NameRegistry : INameRegistry
 {
     private readonly Web3 _web3;
     private readonly Contract _contract;
+    private readonly string _signer;
 
     public NameRegistry(string signerPrivKey, string rpcUrl)
     {
         var acct = new Nethereum.Web3.Accounts.Account(signerPrivKey);
+        _signer = acct.Address;
         _web3 = new Web3(acct, rpcUrl);
         _contract = _web3.Eth.GetContract(Abi.ContractAbi, Abi.ContractAddress);
     }
 
-    public async Task<string?> GetProfileCidAsync(string avatar, CancellationToken ct = default)
-    {
-        var func = _contract.GetFunction("getMetadataDigest");
+    /* ───────────────── read ───────────────── */
 
-        var digest = await func.CallAsync<byte[]>(avatar);
+    public async Task<string?> GetProfileCidAsync(string avatar, CancellationToken _ = default)
+    {
+        var fn = _contract.GetFunction("getMetadataDigest");
+        var digest = await fn.CallAsync<byte[]>(avatar);
         return digest.All(b => b == 0) ? null : CidConverter.DigestToCid(digest);
     }
 
-    public Task<string?> UpdateProfileCidAsync(
-        string avatar,
-        byte[] metadataDigest32,
-        CancellationToken ct = default)
-        => UpdateProfileCidAsync(avatar, (ReadOnlyMemory<byte>)metadataDigest32, ct);
+    /* ───────────────── write (EOA path) ───────────────── */
+
+    public Task<string?> UpdateProfileCidAsync(string avatar, byte[] digest32,
+        CancellationToken ct = default) =>
+        UpdateProfileCidAsync(avatar, (ReadOnlyMemory<byte>)digest32, ct);
 
     public async Task<string?> UpdateProfileCidAsync(string avatar,
         ReadOnlyMemory<byte> digest32,
         CancellationToken ct = default)
     {
+        if (!avatar.Equals(_signer, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException(
+                $"avatar ({avatar}) must equal tx‑signer ({_signer}). " +
+                "For Safe accounts wrap the call in execTransaction.");
+
         var handler = _web3.Eth.GetContractTransactionHandler<UpdateDigest>();
-        var msg = new UpdateDigest
+        var tx = new UpdateDigest
         {
             MetadataDigest = digest32.ToArray(),
-            FromAddress = avatar
+            FromAddress = _signer
         };
 
         var receipt = await handler.SendRequestAndWaitForReceiptAsync(
-            Abi.ContractAddress, msg, ct);
+            Abi.ContractAddress, tx, ct);
         return receipt.TransactionHash;
     }
 }

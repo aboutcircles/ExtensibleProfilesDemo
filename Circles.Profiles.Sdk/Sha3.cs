@@ -3,10 +3,10 @@ using Nethereum.Util;
 namespace Circles.Profiles.Sdk;
 
 /// <summary>Very small façade so call-sites can stay terse.</summary>
-internal static class Sha3
+public static class Sha3
 {
-    private static readonly Sha3Keccack _keccak = new();
+    private static readonly Sha3Keccack Keccak = new();
 
-    internal static byte[] Keccak256Bytes(ReadOnlySpan<byte> data) =>
-        _keccak.CalculateHash(data.ToArray());
+    public static byte[] Keccak256Bytes(ReadOnlySpan<byte> data) =>
+        Keccak.CalculateHash(data.ToArray());
 }
