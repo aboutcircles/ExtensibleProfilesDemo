@@ -54,9 +54,12 @@ public sealed class DefaultNamespaceReader : INamespaceReader
 
     private async Task<bool> Verify(CustomDataLink l, CancellationToken ct)
     {
-        byte[] hash = Sha3.Keccak256Bytes(
-            CanonicalJson.CanonicaliseWithoutSignature(l));
-        return await _verifier.VerifyAsync(
-            hash, l.SignerAddress, l.Signature.HexToByteArray(), ct);
+        if (NonceRegistry.SeenBefore(l.Nonce))
+        {
+            return false; // replay → drop
+        }
+
+        byte[] hash = Sha3.Keccak256Bytes(CanonicalJson.CanonicaliseWithoutSignature(l));
+        return await _verifier.VerifyAsync(hash, l.SignerAddress, l.Signature.HexToByteArray(), ct);
     }
 }
