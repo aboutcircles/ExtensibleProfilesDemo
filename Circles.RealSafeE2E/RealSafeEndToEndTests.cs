@@ -51,11 +51,11 @@ public class RealSafeEndToEndTests
         await using var ipfs = new IpfsStore();
         var chainApi = new EthereumChainApi(_web3, 100);
 
-        const int Rounds = 3;
-        Console.WriteLine($"[E2E] Writing {Rounds} rounds, all sender→recipient pairs");
+        const int rounds = 3;
+        Console.WriteLine($"[E2E] Writing {rounds} rounds, all sender→recipient pairs");
 
         /* ---------- 1) write messages (Rounds × 3 × 2 = 18 links) ---- */
-        for (int r = 0; r < Rounds; r++)
+        for (int r = 0; r < rounds; r++)
         {
             foreach (var sender in _actors)
             {
@@ -113,7 +113,7 @@ public class RealSafeEndToEndTests
                 var idx = await Helpers.LoadIndex(prof.Namespaces[nsKey], ipfs);
                 var chunk = await Helpers.LoadChunk(idx.Head, ipfs);
 
-                string expectedName = $"msg-r{Rounds - 1}-{sender.Alias[0]}to{recipient.Alias[0]}";
+                string expectedName = $"msg-r{rounds - 1}-{sender.Alias[0]}to{recipient.Alias[0]}";
                 Assert.That(chunk.Links.Select(l => l.Name), Contains.Item(expectedName),
                     $"link {expectedName} not found in {sender.Alias}→{recipient.Alias}");
             }

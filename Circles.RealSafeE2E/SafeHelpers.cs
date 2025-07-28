@@ -140,11 +140,11 @@ internal static class SafeHelpers
     internal static byte[] EncodeUpdateDigest(byte[] digest)
     {
         var abi = new ABIEncode();
-        var selector = sha3("updateMetadataDigest(bytes32)").Subarray(0, 4);
+        var selector = Sha3("updateMetadataDigest(bytes32)").Subarray(0, 4);
         return selector.Concat(abi.GetABIEncoded(new ABIValue("bytes32", digest))).ToArray();
     }
 
-    private static byte[] sha3(string s) =>
+    private static byte[] Sha3(string s) =>
         new Sha3Keccack().CalculateHash(s).HexToByteArray();
 
     private static byte[] Subarray(this byte[] src, int off, int len)

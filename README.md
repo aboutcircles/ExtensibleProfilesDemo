@@ -1,88 +1,92 @@
-# Circles Profiles SDK
+# Circles extensible profiles PoC
 
-> Self‑contained building blocks for **extensible, signed user profiles** that live on IPFS and are discoverable through
-> a tiny on‑chain registry.
+Circles Profiles SDK lets you give every address on‑chain a portable, tamper‑proof identity card—stored on IPFS,
+notarised by a 32‑byte hash on Gnosis Chain, and easy to read or extend from any C#, TypeScript, or JavaScript project.
 
----
+You can use it to build things like:
 
-## 1 ‑ Bird’s‑eye view
-
-| Layer                   | Purpose                                                                                | Shipped here                                                            |
-|-------------------------|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| **Registry (Solidity)** | `avatar → SHA‑256 digest` of the current profile document. One 32‑byte slot per user.  | `NameRegistry` client<br>(direct EOA calls or Safe → `execTransaction`) |
-| **IPFS (any daemon)**   | Persists immutable blobs: profile JSON, namespace indices/chunks, arbitrary user data. | `IpfsStore` (8 MiB cap, CID‑v0 only)                                    |
-| **SDK**                 | High‑level primitives in C#, TypeScript and JS.                                        | this repo                                                               |
-| **Demo / Gateway**      | CLI helper (`dotnet run ...`) and an ActivityPub facade.                               | `ExtensibleProfilesDemo`, `Circles.ActivityPubGateway`                  |
+* **A server‑less wallet‑to‑wallet inbox or notification feed** – each message is a signed, replay‑protected IPFS blob, verifiable by any client without trusting a backend.
+* **Cross‑dApp user preferences that sync automatically across devices** – themes, RPC endpoints, or feature flags written by the dApp, approved in‑wallet, and readable everywhere.
 
 ---
 
-## 2 ‑ Core data model
+## 1 · Bird’s‑eye view
+
+| Layer                   | Purpose                                                                                | Shipped here                                                         |
+| ----------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Registry (Solidity)** | `avatar → SHA‑256 digest` of the current profile document (one 32‑byte slot per user). | `NameRegistry` client (direct EOA calls or Safe → `execTransaction`) |
+| **IPFS (any daemon)**   | Persists immutable blobs: profile JSON, namespace indices/chunks, arbitrary user data. | `IpfsStore` (8 MiB cap, CID‑v0 only)                                 |
+| **SDK**                 | High‑level primitives in C#, TypeScript and JS.                                        | this repo                                                            |
+| **Demo / Gateway**      | CLI helper (`dotnet run …`) and an ActivityPub facade.                                 | `ExtensibleProfilesDemo`, `Circles.ActivityPubGateway`               |
+
+---
+
+## 2 · Core data model
 
 ```text
-Profile (one per user, mutable, IPFS CID pinned)
+Profile  (one per user, mutable, IPFS CID pinned)
 ├─ namespaces : { key → index‑CID }     // arbitrary keys, usually recipient addresses
 ├─ signingKeys: { fp  → public‑key }    // rotating long‑term keys
-└─ misc fields: name, description, images …
+└─ misc fields : name, description, images, …
 ```
 
 ### Namespace → append‑only log
 
 ```
-index‑doc (tiny)
+index‑doc  (tiny)
   ├─ head     → newest chunk‑CID
   └─ entries  : logical‑name → owning‑chunk‑CID
 
-chunk (≤100 links, immutable)
+chunk (≤ 100 links, immutable)
   ├─ prev     → older chunk‑CID | null
   └─ links[]  → CustomDataLink
 ```
 
-### CustomDataLink → signed envelope
+### `CustomDataLink` → signed envelope
 
-| field                          | note                                      |   |   |   |                     |
-|--------------------------------|-------------------------------------------|---|---|---|---------------------|
-| `name`                         | logical identifier (e.g. `msg‑42`)        |   |   |   |                     |
-| `cid`                          | payload (any IPFS object)                 |   |   |   |                     |
-| `signerAddress`                | EOA **or** Safe that vouches for the link |   |   |   |                     |
-| `signedAt`, `nonce`, `chainId` | replay protection                         |   |   |   |                     |
-| `signature`                    | 65‑byte \`r                               |   | s |   | v\`, lower‑case hex |
+| field                        | note                                      |
+| ---------------------------- | ----------------------------------------- |
+| `name`                       | logical ID (e.g. `msg‑42`)                |
+| `cid`                        | payload (any IPFS object)                 |
+| `signerAddress`              | EOA **or** Safe that vouches for the link |
+| `signedAt / nonce / chainId` | replay protection                         |
+| `signature`                  | 65‑byte `r s v` (lower‑case hex)          |
 
-The JSON is canonicalised (RFC 8785, `signature` field omitted) before hashing and signing.
-Signatures:
+The JSON is canonicalised (RFC 8785, **`signature` dropped**) before hashing
+and signing.
 
-* **EOA** → regular ECDSA, enforced *low‑S* (EIP‑2).
-* **Contract / Safe** → ERC‑1271 with graceful fallback between `bytes32` and `bytes` variants.
+* **EOA** → plain ECDSA, enforced **low‑S** (EIP‑2)
+* **Safe / contract** → ERC‑1271 with graceful `bytes32` / `bytes` fallback
 
 ---
 
-## 3 ‑ What the SDK gives you
+## 3 · What the SDK gives you
 
 ### ✔ Write
 
 ```csharp
-IIpfsStore   ipfs   = new IpfsStore();
-INameRegistry reg    = new NameRegistry(privKey, "<rpc‑url>");
-var store           = new ProfileStore(ipfs, reg);
+IIpfsStore      ipfs = new IpfsStore();
+INameRegistry   reg  = new NameRegistry(privKey, "<rpc>");
+var store            = new ProfileStore(ipfs, reg);
 
 var profile = await store.FindAsync(myAddress) ?? new Profile { Name = "Alice" };
 
-var signer  = new DefaultLinkSigner();             // or SafeLinkSigner
+var signer  = new DefaultLinkSigner();                // or SafeLinkSigner
 var writer  = await NamespaceWriter.CreateAsync(profile, recipient, ipfs, signer);
 
 await writer.AddJsonAsync("msg‑1", "{\"txt\":\"gm\"}", privKey);
-await store.SaveAsync(profile, privKey);           // pins JSON + updates registry
+await store.SaveAsync(profile, privKey);              // pins JSON + updates registry
 ```
 
-### ✔ Read (with on‑the‑fly signature checks)
+### ✔ Read (on‑the‑fly sig checks)
 
 ```csharp
-var registry = new NameRegistry(privKey, "<rpc>");
-var profCid  = await registry.GetProfileCidAsync(sender);
-var profJson = await ipfs.CatStringAsync(profCid);
-var profile  = JsonSerializer.Deserialize<Profile>(profJson)!;
+var profCid  = await reg.GetProfileCidAsync(sender);
+var profile  = JsonSerializer.Deserialize<Profile>(await ipfs.CatStringAsync(profCid))!;
 
 var idxCid   = profile.Namespaces[myAddress.ToLowerInvariant()];
 var idx      = await Helpers.LoadIndex(idxCid, ipfs);
+
 var verifier = new DefaultSignatureVerifier(new EthereumChainApi(web3, 100));
 var reader   = new DefaultNamespaceReader(idx.Head, ipfs, verifier);
 
@@ -92,169 +96,188 @@ await foreach (var link in reader.StreamAsync())
 
 ### ✔ Safe support
 
-* `SafeLinkSigner` crafts links whose `signerAddress` is the Safe itself yet
-  are signed with an owner’s EOA key and **pass on‑chain `isValidSignature`**.
-* `GnosisSafeExecutor` wraps `execTransaction` for single‑owner Safes so the CLI
-  (and tests) can publish profile digests without manual multisig steps.
+* **`SafeLinkSigner`** – link’s `signerAddress` **is** the Safe, but the proof
+  is generated with the owner EOA and passes on‑chain `isValidSignature`.
+* **`GnosisSafeExecutor`** – convenience for single‑owner Safes to push profile
+  updates without manual multisig UX.
 
 ---
 
-## 4 ‑ Integrity & limits
+## 4 · Guarantees, integrity & foot‑guns
 
-* Canonical JSON **rejects duplicate properties** and non‑finite numbers.
-* IPFS download hard‑cap: **8 MiB** per blob (checked before and during stream).
-* CID checker is intentionally strict: **CID‑v0 (`Qm…`, Base58btc) only**.
+### 4‑a  What the SDK guarantees – and what it doesn’t
+
+| Theme                          | ✅ SDK guarantees                                                                                                           | ⚠️ Implementor must handle                                                          |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **Cryptographic authenticity** | RFC 8785 canonical JSON, ECDSA low‑S, ERC‑1271 (`bytes32` + `bytes` fallback).                                             | Use a reliable RPC – pruned or rate‑limited nodes break `eth_getCode` / `eth_call`. |
+| **Replay & tamper protection** | `nonce`, `signedAt`, `chainId` checked; duplicate nonces rejected; duplicate JSON keys rejected.                           | If you mirror links to your DB you must enforce the same nonce window.              |
+| **Operator key lifecycle**     | `AcceptSignedLinkAsync` validates EOA fingerprints against operator’s `signingKeys` and `validFrom / validTo / revokedAt`. | Keep the operator profile current when rotating or revoking keys.                   |
+| **Chunk/index consistency**    | Atomic commit (pin head‑chunk → compute index CID → update profile → pin index). Unit‑tests cover rotation/bulk.           | Manually editing pinned JSON can leave dangling CIDs – SDK won’t heal that.         |
+| **Download size**              | Hard‑caps IPFS reads at **8 MiB** (header & stream).                                                                       | Store bigger blobs elsewhere and link them.                                         |
+| **Safe happy‑path**            | Single‑owner Safe v1.3.0 handled end‑to‑end.                                                                               | Threshold > 1, modules, future Safe ABIs need custom code.                          |
+| **Data availability**          | None.                                                                                                                      | Run a pin service/cluster or accept that blobs may disappear.                       |
+| **Privacy / ACL**              | None – payloads are public.                                                                                                | Encrypt before `AddJsonAsync`, set `encrypted=true`, manage keys externally.        |
+| **Gas payment**                | Not covered.                                                                                                               | Ensure the key calling `updateMetadataDigest` has funds.                            |
+
+### 4‑b  Common foot‑guns
+
+1. **Forgetting to pin** – `AddJsonAsync` pins, but `AttachExistingCidAsync` assumes *you* pinned the CID.
+2. **Clock skew** – `signedAt` is trusted for ordering; keep device clocks within ±30 s.
+3. **Cross‑chain confusion** – sign on the intended `chainId`; mixing nonces across chains breaks replay‑protection.
+4. **Address case‑mismatch** – namespaces are lower‑cased; keep UI/API look‑ups the same.
+5. **Assuming verified ⇒ sane** – signature ≠ business‑logic validation. Always sanity‑check JSON payloads before acting.
 
 ---
 
-## 5 ‑ Repository layout
+## 5 · Repo layout
 
 ```
-/Circles.Profiles.Sdk         C# reference implementation + unit tests (NUnit)
-/js                           Isomorphic TS/JS port (Esm & CJS bundles)
-/ExtensibleProfilesDemo       Minimal CLI – create, send, inbox, link, smoke‑test
-/Circles.ActivityPubGateway   Maps profiles + namespaces → ActivityPub outboxes
-/Circles.RealSafeE2E          Real Safe end‑to‑end tests against Gnosis Chain
+/Circles.Profiles.Sdk            C# reference implementation + NUnit tests
+/js                              Isomorphic TS/JS port (ESM & CJS bundles)
+/ExtensibleProfilesDemo          Minimal CLI – create, send, inbox, link
+/Circles.ActivityPubGateway      Maps profiles & namespaces → ActivityPub
+/Circles.RealSafeE2E             Real‑chain Safe e2e tests against Gnosis Chain
 ```
 
 ---
 
-## 6 ‑ Running the tests
+## 6 · Running the tests
 
 ```bash
 # .NET
-dotnet test                                # ≥ .NET 9 SDK
+dotnet test                  # needs .NET 9 SDK+
 
 # TypeScript
 pnpm install
 pnpm vitest
 ```
 
-The suite spins up an in‑memory IPFS stub for unit tests and—optionally—
-talks to a real go‑IPFS daemon for the E2Es.
-Safe tests target the public Gnosis RPC; set `PRIVATE_KEY` to a funded
-account before running them.
+The C# suite uses an in‑memory IPFS stub; Safe e2e’s hit the public Gnosis RPC –
+export `PRIVATE_KEY` with a funded account first.
 
 ---
 
-## 7 – Usage Examples
+## 7 · Usage examples
 
-Below are practical scenarios showing how the SDK can be used in common workflows:
-
-### Example 1: Create a New Profile and Publish It
-
-This example demonstrates how to initialize a profile, add metadata, and store it on IPFS and the on-chain registry.
+### Example 1 – New profile
 
 ```csharp
-var ipfs = new IpfsStore();
-var registry = new NameRegistry(privKey, "<rpc-url>");
-var store = new ProfileStore(ipfs, registry);
+var store   = new ProfileStore(ipfs, reg);
+var alice   = new Profile { Name = "Alice", Description = "web3 dev" };
 
-var newProfile = new Profile
-{
-    Name = "Alice",
-    Description = "Web3 enthusiast and developer",
-    Namespaces = new Dictionary<string, string>(),
-    SigningKeys = new Dictionary<string, string>()
-};
-
-await store.SaveAsync(newProfile, privKey);
+await store.SaveAsync(alice, privKey);
 ```
 
 ---
 
-### Example 2: Sending Signed Data to Another User's Namespace
-
-This example demonstrates how Alice can append data (like messages or payloads) to Bob's namespace securely.
+### Example 2 – Alice → Bob (message)
 
 ```csharp
-var signer = new DefaultLinkSigner();
-var writer = await NamespaceWriter.CreateAsync(aliceProfile, bobAddress, ipfs, signer);
+var writer = await NamespaceWriter.CreateAsync(alice, bobAddr, ipfs, signer);
 
-var messageJson = "{\"txt\":\"Hello Bob! 👋\"}";
-await writer.AddJsonAsync("greeting-001", messageJson, alicePrivKey);
-
-// Update the profile to pin new data and update the registry
-await store.SaveAsync(aliceProfile, alicePrivKey);
+await writer.AddJsonAsync("greeting‑001", "{\"txt\":\"Hello Bob! 👋\"}", alicePriv);
+await store.SaveAsync(alice, alicePriv);
 ```
 
 ---
 
-### Example 3: Reading and Validating Data from a Namespace
-
-Bob retrieves and validates incoming data from Alice’s namespace.
+### Example 3 – Bob validates incoming links
 
 ```csharp
-var profCid = await registry.GetProfileCidAsync(aliceAddress);
-var aliceJson = await ipfs.CatStringAsync(profCid);
-var aliceProfile = JsonSerializer.Deserialize<Profile>(aliceJson)!;
-
-var idxCid = aliceProfile.Namespaces[bobAddress.ToLowerInvariant()];
-var idx = await Helpers.LoadIndex(idxCid, ipfs);
-var verifier = new DefaultSignatureVerifier(new EthereumChainApi(web3, 100));
-var reader = new DefaultNamespaceReader(idx.Head, ipfs, verifier);
+var idxCid   = aliceProfile.Namespaces[bobAddr.ToLowerInvariant()];
+var idx      = await Helpers.LoadIndex(idxCid, ipfs);
+var reader   = new DefaultNamespaceReader(idx.Head, ipfs, verifier);
 
 await foreach (var link in reader.StreamAsync())
-{
-    var data = await ipfs.CatStringAsync(link.Cid);
-    Console.WriteLine($"{link.Name}: {data}");
-}
+    Console.WriteLine(await ipfs.CatStringAsync(link.Cid));
 ```
 
 ---
 
-### Example 4: Using the SDK with a Gnosis Safe
-
-Shows how to sign and publish updates to a profile using a Gnosis Safe.
+### Example 4 – Publishing via Safe
 
 ```csharp
-var signer = new SafeLinkSigner(ownerPrivKey, safeAddress, web3);
-var writer = await NamespaceWriter.CreateAsync(profile, recipientAddress, ipfs, signer);
+var safeSigner = new SafeLinkSigner(safeAddr, chainApi);
+var writer     = await NamespaceWriter.CreateAsync(profile, recipient, ipfs, safeSigner);
 
-await writer.AddJsonAsync("announcement", "{\"txt\":\"New announcement from the team!\"}", ownerPrivKey);
-
-var executor = new GnosisSafeExecutor(web3, safeAddress, ownerPrivKey);
-await store.SaveAsync(profile, executor);
+await writer.AddJsonAsync("announcement", "{\"txt\":\"v1 live\"}", ownerPriv);
+await store.SaveAsync(profile, ownerPriv);   // wrapped in execTransaction underneath
 ```
 
 ---
 
-### Example 5: Listing all messages from a user’s namespace (JavaScript/TypeScript SDK)
+### Example 5 – JS/TS – iterate links
 
-Shows how to read profile data and iterate over namespace entries using the JS SDK.
+```ts
+const profileCid = await registry.getProfileCid(sender);
+const profile = JSON.parse(await ipfs.catString(profileCid));
 
-```typescript
-import {
-    IpfsStore,
-    NameRegistry,
-    ProfileStore,
-    Helpers,
-    DefaultNamespaceReader,
-    EthereumChainApi,
-    DefaultSignatureVerifier
-} from '@circles-profiles/sdk';
+const idxCid = profile.namespaces[recipient.toLowerCase()];
+const idx = await Helpers.loadIndex(idxCid, ipfs);
 
-const ipfs = new IpfsStore();
-const registry = new NameRegistry(privateKey, "<rpc-url>");
-
-const profileCid = await registry.getProfileCid(senderAddress);
-const profileJson = await ipfs.catString(profileCid);
-const profile = JSON.parse(profileJson);
-
-const namespaceCid = profile.namespaces[recipientAddress.toLowerCase()];
-const index = await Helpers.loadIndex(namespaceCid, ipfs);
-
-const verifier = new DefaultSignatureVerifier(new EthereumChainApi(web3, 100));
-const reader = new DefaultNamespaceReader(index.head, ipfs, verifier);
-
-for await (const link of reader.stream()) {
-    const data = await ipfs.catString(link.cid);
-    console.log(link.name, data);
-}
+const reader = new DefaultNamespaceReader(idx.head, ipfs, verifier);
+for await (const link of reader.stream()) console.log(link);
 ```
 
 ---
 
-## 8 ‑ License
+### Example 6 – **dApp settings stored in the user profile**
+
+A dApp wants **user‑specific settings** available on every device **without** running its own backend.
+It writes into the user’s profile under the dApp’s *operator namespace* (its Safe address).
+The wallet validates the link against the dApp’s published signing‑keys and commits it.
+
+#### 6‑a  dApp crafts the link
+
+```csharp
+var settings = new { theme = "dark", rpcUrl = "https://rpc.gnosis.io" };
+var cid      = await ipfs.AddJsonAsync(JsonSerializer.Serialize(settings), pin:true);
+
+var safeSigner  = new SafeLinkSigner("0xDappSafe", chainApi);
+var draft       = new CustomDataLink
+{
+    Name      = "prefs‑v1",
+    Cid       = cid,
+    ChainId   = Helpers.DefaultChainId,
+    SignedAt  = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+    Nonce     = CustomDataLink.NewNonce(),
+    Encrypted = false
+};
+
+var signedLink = safeSigner.Sign(draft, safeOwnerPrivKey);
+// hand `signedLink` to the user (WalletConnect, deeplink, etc.)
+```
+
+#### 6‑b  Wallet verifies + stores
+
+```csharp
+var dappProfile = await profileStore.FindAsync("0xDappSafe")!; // contains signingKeys
+
+var writer = await NamespaceWriter.CreateAsync(userProfile,
+               "0xDappSafe", ipfs, new DefaultLinkSigner());
+
+await writer.AcceptSignedLinkAsync(signedLink, dappProfile);
+await profileStore.SaveAsync(userProfile, userPrivKey);
+```
+
+#### 6‑c  Any device reads the settings
+
+```csharp
+var idxCid = userProfile.Namespaces["0xdappsafe"];
+var idx    = await Helpers.LoadIndex(idxCid, ipfs);
+var reader = new DefaultNamespaceReader(idx.Head, ipfs, verifier);
+
+var latest = await reader.GetLatestAsync("prefs‑v1");
+var raw    = await ipfs.CatStringAsync(latest!.Cid);
+
+var prefs  = JsonSerializer.Deserialize<Dictionary<string,object>>(raw);
+// prefs["theme"] == "dark"
+```
+
+✅ No servers, no accounts table – just IPFS, a tiny on‑chain slot and this SDK.
+
+---
+
+## 8 · License
 
 MIT

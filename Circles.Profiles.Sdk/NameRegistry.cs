@@ -87,8 +87,7 @@ public sealed class NameRegistry : INameRegistry
             FromAddress = _signer
         };
 
-        var receipt = await handler.SendRequestAndWaitForReceiptAsync(
-            Abi.ContractAddress, tx, ct);
+        var receipt = await handler.SendRequestAndWaitForReceiptAsync(Abi.ContractAddress, tx, ct);
         return receipt.TransactionHash;
     }
 }

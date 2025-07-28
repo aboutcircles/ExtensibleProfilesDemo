@@ -191,7 +191,10 @@ public sealed class NamespaceWriter : INamespaceWriter
         string headCid = await Helpers.SaveChunk(_head, _ipfs, ct);
 
         foreach (var l in _head.Links)
+        {
             _index.Entries[l.Name] = headCid;
+        }
+
         _index.Head = headCid;
 
         // 2) compute index CID **without pinning** (only‑hash)
@@ -213,38 +216,44 @@ public sealed class NamespaceWriter : INamespaceWriter
     /// </summary>
     public async Task<CustomDataLink> AcceptSignedLinkAsync(
         CustomDataLink signedLink,
+        Profile operatorProfile,
+        IChainApi chain,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(signedLink);
+        ArgumentNullException.ThrowIfNull(operatorProfile);
 
-        /* ── 1) namespace‑key guard ─────────────────────────────────── */
-        if (!signedLink.SignerAddress
-                .Equals(_nsKeyLower, StringComparison.OrdinalIgnoreCase))
-        {
+        /* 1) namespace guard (unchanged) */
+        if (!signedLink.SignerAddress.Equals(_nsKeyLower, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException(
-                $"link signer ({signedLink.SignerAddress}) must equal " +
-                $"namespace key ({_nsKeyLower})");
-        }
+                $"link signer ({signedLink.SignerAddress}) must equal namespace key ({_nsKeyLower})");
 
-        /* ── 2) signature self‑check (cheap, local) ─────────────────── */
-        var chain = new EthereumChainApi(
-            new Nethereum.Web3.Web3("https://rpc.gnosischain.com"), // read‑only
-            Helpers.DefaultChainId);
         var verifier = new DefaultSignatureVerifier(chain);
 
         byte[] hash = Sha3.Keccak256Bytes(
             CanonicalJson.CanonicaliseWithoutSignature(signedLink));
 
-        bool ok = await verifier.VerifyAsync(
-            hash,
-            signedLink.SignerAddress,
-            signedLink.Signature.HexToByteArray(),
-            ct);
+        bool sigOk = await verifier.VerifyAsync(
+            hash, signedLink.SignerAddress, signedLink.Signature.HexToByteArray(), ct);
 
-        if (!ok)
+        if (!sigOk)
             throw new InvalidOperationException("invalid signature on supplied link");
 
-        /* ── 3) persist verbatim ────────────────────────────────────── */
+        /* 3) Signing‑key validity check (EOA only) */
+        if (chain.GetCodeAsync(signedLink.SignerAddress, ct).Result == "0x")
+        {
+            // EOA path – recover pub‑key to derive fingerprint
+            var sig = Nethereum.Signer.EthECDSASignatureFactory.ExtractECDSASignature(signedLink.Signature);
+            var rec = Nethereum.Signer.EthECKey.RecoverFromSignature(sig, hash)
+                      ?? throw new InvalidOperationException("failed to recover public key");
+
+            string fp = SigningKeyUtils.ComputeFingerprint(rec);
+            if (!SigningKeyUtils.IsFingerprintValid(fp, operatorProfile, signedLink.SignedAt))
+                throw new InvalidOperationException("signing key is expired / revoked");
+        }
+        /* 4) Safe path is already covered by ERC‑1271 – no extra key list check */
+
+        /* 5) persist verbatim (unchanged) */
         await PersistAsync([signedLink], ct);
         return signedLink;
     }

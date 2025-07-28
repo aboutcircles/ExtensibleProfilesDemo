@@ -81,9 +81,9 @@ public sealed class GnosisSafeExecutor
     {
         if (safeTxGas == default) safeTxGas = new BigInteger(150_000);
 
-        const byte   CALL      = 0;
-        const string ZERO_ADDR = "0x0000000000000000000000000000000000000000";
-        BigInteger   zero      = BigInteger.Zero;
+        const byte call = 0;
+        const string zeroAddr = "0x0000000000000000000000000000000000000000";
+        BigInteger zero = BigInteger.Zero;
 
         /* ─── 1) obtain nonce + hash ─────────────────────────── */
         var nonceFn = _safe.GetFunction("nonce");
@@ -91,14 +91,14 @@ public sealed class GnosisSafeExecutor
 
         var hashFn = _safe.GetFunction("getTransactionHash");
         byte[] txHash = await hashFn.CallAsync<byte[]>(
-            to, value, data, CALL,
+            to, value, data, call,
             safeTxGas, zero, zero,
-            ZERO_ADDR, ZERO_ADDR, nonce).ConfigureAwait(false);
+            zeroAddr, zeroAddr, nonce).ConfigureAwait(false);
 
         /* ─── 2) EOA signs hash ─────────────────────────────── */
         var acct = (Nethereum.Web3.Accounts.Account)_web3.TransactionManager.Account;
-        var key  = new EthECKey(acct.PrivateKey);
-        var sig  = key.SignAndCalculateV(txHash);
+        var key = new EthECKey(acct.PrivateKey);
+        var sig = key.SignAndCalculateV(txHash);
 
         // 65‑byte packed (R || S || V)
         byte[] sigBytes = sig.To64ByteArray().Concat([sig.V[0]]).ToArray();
@@ -107,12 +107,12 @@ public sealed class GnosisSafeExecutor
         var execFn = _safe.GetFunction("execTransaction");
         var receipt = await execFn.SendTransactionAndWaitForReceiptAsync(
             acct.Address,
-            new HexBigInteger(600_000),          // outer tx gas
-            new HexBigInteger(0),                // value
+            new HexBigInteger(600_000), // outer tx gas
+            new HexBigInteger(0), // value
             ct,
-            to, value, data, CALL,
+            to, value, data, call,
             safeTxGas, zero, zero,
-            ZERO_ADDR, ZERO_ADDR,
+            zeroAddr, zeroAddr,
             sigBytes).ConfigureAwait(false);
 
         return receipt.TransactionHash;

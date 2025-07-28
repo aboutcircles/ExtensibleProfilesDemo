@@ -1,6 +1,5 @@
 using System.Numerics;
 using Circles.Profiles.Interfaces;
-using Nethereum.Contracts;
 using Nethereum.JsonRpc.Client;
 using Nethereum.Web3;
 

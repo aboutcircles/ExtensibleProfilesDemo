@@ -218,7 +218,7 @@ public static class Program
         string[] trusted = csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         await using var ipfs = new IpfsStore();
-        var chainApi = new EthereumChainApi(new Web3(new Nethereum.Web3.Accounts.Account(priv), Config.RpcUrl), 100);
+        var chainApi = new EthereumChainApi(new Web3(new Account(priv), Config.RpcUrl), 100);
         var verifier = new DefaultSignatureVerifier(chainApi);
         var registry = new NameRegistry(priv, Config.RpcUrl);
 

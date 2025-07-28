@@ -175,7 +175,7 @@ app.MapGet("/users/{avatar}/outbox", async (
     var prof = await store.FindAsync(avatar);
     if (prof is null) return Results.NotFound();
 
-    const int PageSize = 20;
+    const int pageSize = 20;
     var allLinks = new List<CustomDataLink>();
 
     /* collect newest links from *all* namespaces – that is the author’s outbox */
@@ -187,10 +187,10 @@ app.MapGet("/users/{avatar}/outbox", async (
         await foreach (var l in reader.StreamAsync().WithCancellation(req.HttpContext.RequestAborted))
         {
             allLinks.Add(l);
-            if (allLinks.Count >= PageSize) break;
+            if (allLinks.Count >= pageSize) break;
         }
 
-        if (allLinks.Count >= PageSize) break;
+        if (allLinks.Count >= pageSize) break;
     }
 
     string selfUrl = $"{req.Scheme}://{req.Host}/users/{avatar}";
@@ -199,7 +199,7 @@ app.MapGet("/users/{avatar}/outbox", async (
     var activities = await Task.WhenAll(
         allLinks
             .OrderByDescending(l => l.SignedAt)
-            .Take(PageSize)
+            .Take(pageSize)
             .Select(l => ConvertLinkAsync(l, ipfs, selfUrl)));
 
     var collection = new

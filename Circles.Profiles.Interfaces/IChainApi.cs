@@ -30,6 +30,6 @@ public interface IChainApi
         byte[] signature,
         CancellationToken ct = default);
     
-    Task<System.Numerics.BigInteger> GetSafeNonceAsync(
+    Task<BigInteger> GetSafeNonceAsync(
         string safeAddress, CancellationToken ct = default);
 }
