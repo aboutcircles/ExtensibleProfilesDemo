@@ -1,6 +1,6 @@
-// src/GnosisSafeExecutor.ts
-import { ethers, SigningKey } from 'ethers';
-import { ISafeExecutor } from './interfaces/ISafeExecutor';
+import {ethers, SigningKey} from 'ethers';
+import {ISafeExecutor} from './interfaces/ISafeExecutor';
+import {Helpers} from './utils/Helpers';
 
 /**
  * Safe transaction execution helper for Gnosis Safe
@@ -69,7 +69,7 @@ export class GnosisSafeExecutor implements ISafeExecutor {
         if (!safeAddress?.trim()) throw new Error('safeAddress is required');
         if (!signer.provider) throw new Error('Signer must be connected to a provider');
 
-        this.signer      = signer;
+        this.signer = signer;
         this.safeAddress = ethers.getAddress(safeAddress);
         this.safeContract = new ethers.Contract(
             this.safeAddress,
@@ -80,9 +80,10 @@ export class GnosisSafeExecutor implements ISafeExecutor {
 
     /* ------------------------------------------------------------------ */
     /* public API                                                         */
+
     /* ------------------------------------------------------------------ */
 
-    public async execTransactionAsync (
+    public async execTransactionAsync(
         to: string,
         data: Uint8Array | string,
         value: bigint = 0n,
@@ -94,20 +95,20 @@ export class GnosisSafeExecutor implements ISafeExecutor {
             ? data.startsWith('0x') ? data : `0x${data}`
             : `0x${Buffer.from(data).toString('hex')}`;
 
-        const nonce  = await this.safeContract.nonce();
+        const nonce = await this.safeContract.nonce();
         const params = {
-            to:             ethers.getAddress(to),
+            to: ethers.getAddress(to),
             value,
-            data:           dataHex,
+            data: dataHex,
             operation,
-            safeTxGas:      150_000n,
-            baseGas:        0n,
-            gasPrice:       0n,
-            gasToken:       ethers.ZeroAddress,
+            safeTxGas: 150_000n,
+            baseGas: 0n,
+            gasPrice: 0n,
+            gasToken: ethers.ZeroAddress,
             refundReceiver: ethers.ZeroAddress
         };
 
-        const txHash   = await this.safeContract.getTransactionHash(
+        const txHash = await this.safeContract.getTransactionHash(
             params.to,
             params.value,
             params.data,
@@ -133,7 +134,7 @@ export class GnosisSafeExecutor implements ISafeExecutor {
             params.gasToken,
             params.refundReceiver,
             signature,
-            { gasLimit: 600_000n }
+            {gasLimit: 600_000n}
         );
 
         const receipt = await tx.wait();
@@ -142,16 +143,17 @@ export class GnosisSafeExecutor implements ISafeExecutor {
 
     /* ------------------------------------------------------------------ */
     /* private helpers                                                    */
+
     /* ------------------------------------------------------------------ */
 
     /** Signs the raw Safe tx‑hash (no EIP‑191 prefix). */
-    private async signTransactionHashRaw (txHash: string): Promise<string> {
+    private async signTransactionHashRaw(txHash: string): Promise<string> {
         if (!('privateKey' in this.signer)) {
             throw new Error('Signer must be an ethers.Wallet with an unlocked private key');
         }
 
-        const key  = new SigningKey((this.signer as ethers.Wallet).privateKey);
-        const sig  = key.sign(ethers.getBytes(txHash));
+        const key = new SigningKey((this.signer as ethers.Wallet).privateKey);
+        const sig = key.sign(ethers.getBytes(txHash));
         const blob = ethers.concat([
             sig.r,
             sig.s,
@@ -163,14 +165,15 @@ export class GnosisSafeExecutor implements ISafeExecutor {
 
     /* ------------------------------------------------------------------ */
     /* factory helper – *correct* random wallet                           */
+
     /* ------------------------------------------------------------------ */
 
     /**
      * Convenience: returns a *new* Wallet with a cryptographically‑secure
      * random private‑key connected to `provider`.
      */
-    public static randomWallet (provider: ethers.JsonRpcProvider): ethers.Wallet {
-        const pkHex = ethers.hexlify(ethers.randomBytes(32));     // "0x" + 64 hex
+    public static randomWallet(provider: ethers.JsonRpcProvider): ethers.Wallet {
+        const pkHex = ethers.hexlify(Helpers.randomBytes(32));    // Use shared helper
         return new ethers.Wallet(pkHex, provider);
     }
 }
