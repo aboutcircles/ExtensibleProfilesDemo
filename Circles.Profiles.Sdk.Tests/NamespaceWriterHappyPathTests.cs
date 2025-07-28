@@ -8,21 +8,21 @@ public class NamespaceWriterHappyPathTests
 {
     private readonly string _priv = Nethereum.Signer.EthECKey.GenerateKey().GetPrivateKey();
 
-    private (Profile p, InMemoryIpfsStore store, NamespaceWriter w) Boot(string nsKey = "Bob")
+    private async Task<(Profile p, InMemoryIpfsStore store, NamespaceWriter w)> Boot(string nsKey = "Bob")
     {
         var p = new Profile { Name = "Alice", Description = "Demo" };
         var s = new InMemoryIpfsStore();
-        return (p, s, new NamespaceWriter(p, nsKey, s, new DefaultLinkSigner()));
+        return (p, s, await NamespaceWriter.CreateAsync(p, nsKey, s, new DefaultLinkSigner()));
     }
 
     [Test]
     public async Task AddJsonAsync_Persists_Chunk_Index_Profile()
     {
-        var (prof, store, w) = Boot();
+        var (prof, store, w) = await Boot();
 
         var link = await w.AddJsonAsync("msg-1", """{ "hello":"world" }""", _priv);
 
-        Assert.Multiple(async () =>
+        await Assert.MultipleAsync(async () =>
         {
             Assert.That(link.Name, Is.EqualTo("msg-1"));
             Assert.That(prof.Namespaces, Contains.Key("bob"));
@@ -39,7 +39,7 @@ public class NamespaceWriterHappyPathTests
     [Test]
     public async Task AttachCidBatchAsync_Writes_All_Items()
     {
-        var (prof, _, w) = Boot();
+        var (prof, _, w) = await Boot();
 
         var items = new[]
         {
@@ -55,7 +55,7 @@ public class NamespaceWriterHappyPathTests
     [Test]
     public async Task Writer_Rotates_Chunk_When_Limit_Reached()
     {
-        var (_, _, w) = Boot();
+        var (_, _, w) = await Boot();
 
         for (int i = 0; i < Helpers.ChunkMaxLinks; i++)
             await w.AddJsonAsync($"n{i}", "{}", _priv);

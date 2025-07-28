@@ -5,6 +5,8 @@ using Circles.Profiles.Sdk;
 using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Signer;
 using Nethereum.Util;
+using Nethereum.Web3;
+using Nethereum.Web3.Accounts;
 
 namespace ExtensibleProfilesDemo;
 
@@ -99,6 +101,10 @@ public static class Program
             ? f
             : new EthECKey(priv).GetPublicAddress();
 
+        Account account = new Account(priv);
+        var web3 = new Web3(account, Config.RpcUrl);
+        var chainApi = new EthereumChainApi(web3, 100);
+
         var msg = new ChatMessage
         {
             From = sender,
@@ -117,7 +123,11 @@ public static class Program
 
         EnsureSigningKey(profile, priv);
 
-        var writer = new NamespaceWriter(profile, recipient, ipfs, new DefaultLinkSigner());
+        ILinkSigner signer = o.TryGetValue("safe", out var safeAddr)
+            ? new SafeLinkSigner(safeAddr, chainApi)
+            : new DefaultLinkSigner();
+
+        var writer = await NamespaceWriter.CreateAsync(profile, recipient, ipfs, signer);
 
         /* persist */
         var link = await writer.AddJsonAsync($"msg-{msg.Timestamp}",
@@ -167,7 +177,7 @@ public static class Program
 
         EnsureSigningKey(profile, priv);
 
-        var writer = new NamespaceWriter(profile, ns, ipfs, new DefaultLinkSigner());
+        var writer = await NamespaceWriter.CreateAsync(profile, ns, ipfs, new DefaultLinkSigner());
         var link = await writer.AttachExistingCidAsync(name, cid, priv);
         var (_, newProfileCid) = await store.SaveAsync(profile, priv);
 
@@ -201,52 +211,42 @@ public static class Program
 
         if (!o.TryGetValue("trust", out var csv))
         {
-            Console.WriteLine("inbox needs --trust addr[,addr]");
+            Console.WriteLine("inbox needs --trust addr1[,addr2]");
             return;
         }
 
         string[] trusted = csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         await using var ipfs = new IpfsStore();
+        var chainApi = new EthereumChainApi(new Web3(new Nethereum.Web3.Accounts.Account(priv), Config.RpcUrl), 100);
+        var verifier = new DefaultSignatureVerifier(chainApi);
         var registry = new NameRegistry(priv, Config.RpcUrl);
 
-        long shown = 0;
         string myNs = me.ToLowerInvariant();
+        long shown = 0;
 
-        foreach (string sender in trusted)
+        foreach (var sender in trusted)
         {
             string? profCid = await registry.GetProfileCidAsync(sender);
             if (profCid is null) continue;
 
-            string profJson = await ipfs.CatStringAsync(profCid);
+            var profJson = await ipfs.CatStringAsync(profCid);
             var senderProf = JsonSerializer.Deserialize<Profile>(profJson, JsonOpts);
+            if (senderProf is null ||
+                !senderProf.Namespaces.TryGetValue(myNs, out var idxCid)) continue;
 
-            if (!senderProf.Namespaces.TryGetValue(myNs, out var idxCid)) continue;
+            var idx = await Helpers.LoadIndex(idxCid, ipfs);
+            var reader = new DefaultNamespaceReader(idx.Head, ipfs, verifier);
 
-            var idxDoc = await Helpers.LoadIndex(idxCid, ipfs);
-            string? cur = idxDoc.Head;
-
-            while (cur is not null)
+            await foreach (var link in reader.StreamAsync(lastSeen))
             {
-                var chunk = await Helpers.LoadChunk(cur, ipfs);
+                string raw = await ipfs.CatStringAsync(link.Cid);
+                var msg = JsonSerializer.Deserialize<ChatMessage>(raw, JsonOpts);
+                if (msg is null) continue;
 
-                foreach (var link in chunk.Links.OrderBy(l => l.SignedAt))
-                {
-                    if (link.SignedAt <= lastSeen) continue;
-
-                    string msgJson = await ipfs.CatStringAsync(link.Cid);
-                    var msg = JsonSerializer.Deserialize<ChatMessage>(msgJson, JsonOpts);
-                    if (msg is null) continue;
-
-                    Console.WriteLine($"[{sender}] {msg.Type}@{msg.Timestamp}: {msg.Text}");
-                    lastSeen = msg.Timestamp;
-                    shown++;
-                }
-
-                if (chunk.Links.Any() && chunk.Links.Min(l => l.SignedAt) <= lastSeen)
-                    break;
-
-                cur = chunk.Prev;
+                Console.WriteLine($"[{sender}] {msg.Type}@{msg.Timestamp}: {msg.Text}");
+                lastSeen = msg.Timestamp;
+                shown++;
             }
         }
 

@@ -1,4 +1,4 @@
-namespace Circles.Sdk;
+namespace Circles.Profiles.Interfaces;
 
 /// <summary>On-chain name-registry (avatar → profile CID).</summary>
 public interface INameRegistry

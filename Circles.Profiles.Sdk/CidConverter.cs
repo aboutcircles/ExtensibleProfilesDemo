@@ -22,7 +22,12 @@ public static class CidConverter
 
     public static string DigestToCid(byte[] digest32)
     {
-        if (digest32.Length != 32) throw new ArgumentException("digest must be 32 bytes");
+        ArgumentNullException.ThrowIfNull(digest32);
+        if (digest32.Length != 32)
+        {
+            throw new ArgumentException("digest must be 32 bytes");
+        }
+
         byte[] full = new byte[34];
         MhPrefix.CopyTo(full, 0);
         Array.Copy(digest32, 0, full, 2, 32);

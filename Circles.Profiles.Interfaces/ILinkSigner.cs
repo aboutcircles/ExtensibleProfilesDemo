@@ -6,5 +6,4 @@ namespace Circles.Profiles.Interfaces;
 public interface ILinkSigner
 {
     CustomDataLink Sign(CustomDataLink link, string privKeyHex);
-    bool Verify(CustomDataLink link);
 }
