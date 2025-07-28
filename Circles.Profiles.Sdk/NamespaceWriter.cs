@@ -1,5 +1,8 @@
+using System.Text;
+using System.Text.Json;
 using Circles.Profiles.Interfaces;
 using Circles.Profiles.Models;
+using Nethereum.Hex.HexConvertors.Extensions;
 
 namespace Circles.Profiles.Sdk;
 
@@ -177,25 +180,72 @@ public sealed class NamespaceWriter : INamespaceWriter
             /* ── up‑sert … */
             int idx = _head.Links.FindIndex(l => l.Name.Equals(link.Name, StringComparison.OrdinalIgnoreCase));
             if (idx >= 0)
-            {
                 _head.Links[idx] = link;
-            }
             else
-            {
                 _head.Links.Add(link);
-            }
         }
 
-        /* ── flush ─────────────────────────────────────────── */
+        /* ── flush with “only‑hash” pre‑commit ───────────────── */
+
+        // 1) pin head‑chunk first (same as before)
         string headCid = await Helpers.SaveChunk(_head, _ipfs, ct);
-        foreach (var l in _head.Links)
-        {
-            _index.Entries[l.Name] = headCid;
-        }
 
+        foreach (var l in _head.Links)
+            _index.Entries[l.Name] = headCid;
         _index.Head = headCid;
 
-        string indexCid = await Helpers.SaveIndex(_index, _ipfs, ct);
+        // 2) compute index CID **without pinning** (only‑hash)
+        string indexJson = JsonSerializer.Serialize(_index, Helpers.JsonOpts);
+        string indexCid = await _ipfs.CalcCidAsync(
+            Encoding.UTF8.GetBytes(indexJson), ct);
+
+        // 3) publish the new CID into the in‑memory profile object
         _ownerProfile.Namespaces[_nsKeyLower] = indexCid;
+
+        // 4) finally pin the index bytes – CID is identical
+        await _ipfs.AddJsonAsync(indexJson, pin: true, ct);
+    }
+
+    /// <summary>
+    /// Inserts a <b>pre‑signed</b> link after validating
+    ///   • its signature <br/>
+    ///   • signerAddress == namespace key (this writer’s <c>_nsKeyLower</c>)
+    /// </summary>
+    public async Task<CustomDataLink> AcceptSignedLinkAsync(
+        CustomDataLink signedLink,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(signedLink);
+
+        /* ── 1) namespace‑key guard ─────────────────────────────────── */
+        if (!signedLink.SignerAddress
+                .Equals(_nsKeyLower, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"link signer ({signedLink.SignerAddress}) must equal " +
+                $"namespace key ({_nsKeyLower})");
+        }
+
+        /* ── 2) signature self‑check (cheap, local) ─────────────────── */
+        var chain = new EthereumChainApi(
+            new Nethereum.Web3.Web3("https://rpc.gnosischain.com"), // read‑only
+            Helpers.DefaultChainId);
+        var verifier = new DefaultSignatureVerifier(chain);
+
+        byte[] hash = Sha3.Keccak256Bytes(
+            CanonicalJson.CanonicaliseWithoutSignature(signedLink));
+
+        bool ok = await verifier.VerifyAsync(
+            hash,
+            signedLink.SignerAddress,
+            signedLink.Signature.HexToByteArray(),
+            ct);
+
+        if (!ok)
+            throw new InvalidOperationException("invalid signature on supplied link");
+
+        /* ── 3) persist verbatim ────────────────────────────────────── */
+        await PersistAsync([signedLink], ct);
+        return signedLink;
     }
 }

@@ -106,7 +106,7 @@ public class NamespaceWriterTests
         Assert.That(idxDoc.Entries.Count, Is.EqualTo(total));
         Assert.That(idxDoc.Head, Is.Not.Empty);
     }
-    
+
     [Test]
     public void LoadChunk_InvalidJson_ThrowsWithCid()
     {
@@ -119,5 +119,59 @@ public class NamespaceWriterTests
             await Helpers.LoadChunk(cid, ipfs));
 
         Assert.That(ex!.Message, Does.Contain(cid));
+    }
+
+    [Test]
+    public async Task AcceptSignedLinkAsync_Rejects_WrongNamespace()
+    {
+        var user = new Profile();
+        var ipfs = new InMemoryIpfsStore();
+        var signer = new DefaultLinkSigner();
+
+        var writer = await NamespaceWriter.CreateAsync(
+            user, /*nsKey*/"0xDappAddr", ipfs, signer);
+
+        var badLink = signer.Sign(new CustomDataLink
+        {
+            Name = "settings",
+            Cid = "CID‑x",
+            ChainId = Helpers.DefaultChainId,
+            SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Nonce = CustomDataLink.NewNonce(),
+            Encrypted = false
+        }, /*priv*/Nethereum.Signer.EthECKey.GenerateKey().GetPrivateKey());
+
+        // signerAddress ≠ namespace key – must throw
+        Assert.ThrowsAsync<InvalidOperationException>(() => writer.AcceptSignedLinkAsync(badLink));
+    }
+
+    [Test]
+    public async Task AcceptSignedLinkAsync_HappyPath_WritesLink()
+    {
+        var dappKey = Nethereum.Signer.EthECKey.GenerateKey();
+        var dappAddr = dappKey.GetPublicAddress();
+
+        var prof = new Profile();
+        var ipfs = new InMemoryIpfsStore();
+        var signer = new DefaultLinkSigner(); // sign with dappKey later
+
+        var writer = await NamespaceWriter.CreateAsync(
+            prof, dappAddr, ipfs, signer);
+
+        var link = signer.Sign(new CustomDataLink
+        {
+            Name = "theme",
+            Cid = "CID‑settings",
+            ChainId = Helpers.DefaultChainId,
+            SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Nonce = CustomDataLink.NewNonce(),
+            Encrypted = false
+        }, dappKey.GetPrivateKey());
+
+        await writer.AcceptSignedLinkAsync(link);
+
+        var idxCid = prof.Namespaces[dappAddr.ToLowerInvariant()];
+        var idxDoc = await Helpers.LoadIndex(idxCid, ipfs);
+        Assert.That(idxDoc.Entries, Contains.Key("theme"));
     }
 }
