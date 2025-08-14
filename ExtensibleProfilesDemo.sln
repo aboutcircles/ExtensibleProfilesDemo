@@ -1,7 +1,5 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExtensibleProfilesDemo", "ExtensibleProfilesDemo\ExtensibleProfilesDemo.csproj", "{AFE8648A-8F31-455A-889A-4226406BD8A5}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Interfaces", "Circles.Profiles.Interfaces\Circles.Profiles.Interfaces.csproj", "{00A00344-9ABD-49C9-8334-3F754522F44D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Models", "Circles.Profiles.Models\Circles.Profiles.Models.csproj", "{CD2305A3-924B-4C8A-9F7F-34A3F5CF1F2B}"
@@ -19,10 +17,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.RealSafeE2E", "Circ
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.ActivityPubGateway", "Circles.ActivityPubGateway\Circles.ActivityPubGateway.csproj", "{8B3C7BD4-2719-487C-BDAC-62458F27262A}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TypescriptPort", "TypescriptPort", "{15F4142B-2302-4765-8CFB-2F93E9F6713A}"
-	ProjectSection(SolutionItems) = preProject
-		js\tsconfig.json = js\tsconfig.json
-	EndProjectSection
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UI", "UI", "{2E410937-A614-4FE7-80C6-B721F2BE158D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profile.UI", "Circles.Profile.UI\Circles.Profile.UI.csproj", "{10839E09-11C5-47BB-A69C-04A2E8E51FD0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -30,10 +27,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{AFE8648A-8F31-455A-889A-4226406BD8A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AFE8648A-8F31-455A-889A-4226406BD8A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{AFE8648A-8F31-455A-889A-4226406BD8A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AFE8648A-8F31-455A-889A-4226406BD8A5}.Release|Any CPU.Build.0 = Release|Any CPU
 		{00A00344-9ABD-49C9-8334-3F754522F44D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{00A00344-9ABD-49C9-8334-3F754522F44D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{00A00344-9ABD-49C9-8334-3F754522F44D}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -58,5 +51,12 @@ Global
 		{8B3C7BD4-2719-487C-BDAC-62458F27262A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8B3C7BD4-2719-487C-BDAC-62458F27262A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8B3C7BD4-2719-487C-BDAC-62458F27262A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10839E09-11C5-47BB-A69C-04A2E8E51FD0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10839E09-11C5-47BB-A69C-04A2E8E51FD0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10839E09-11C5-47BB-A69C-04A2E8E51FD0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10839E09-11C5-47BB-A69C-04A2E8E51FD0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{10839E09-11C5-47BB-A69C-04A2E8E51FD0} = {2E410937-A614-4FE7-80C6-B721F2BE158D}
 	EndGlobalSection
 EndGlobal
