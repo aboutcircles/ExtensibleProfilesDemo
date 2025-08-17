@@ -5,7 +5,7 @@ using Nethereum.Web3;
 
 namespace Circles.Profiles.Sdk;
 
-file static class Abi
+public static class NameRegistryConsts
 {
     public const string ContractAbi = """
                                       [
@@ -47,7 +47,7 @@ public sealed class NameRegistry : INameRegistry
         var acct = new Nethereum.Web3.Accounts.Account(signerPrivKey);
         _signer = acct.Address;
         _web3 = new Web3(acct, rpcUrl);
-        _contract = _web3.Eth.GetContract(Abi.ContractAbi, Abi.ContractAddress);
+        _contract = _web3.Eth.GetContract(NameRegistryConsts.ContractAbi, NameRegistryConsts.ContractAddress);
     }
 
     /* ───────────────────────────── read ───────────────────────────── */
@@ -87,7 +87,7 @@ public sealed class NameRegistry : INameRegistry
             FromAddress = _signer
         };
 
-        var receipt = await handler.SendRequestAndWaitForReceiptAsync(Abi.ContractAddress, tx, ct);
+        var receipt = await handler.SendRequestAndWaitForReceiptAsync(NameRegistryConsts.ContractAddress, tx, ct);
         return receipt.TransactionHash;
     }
 }

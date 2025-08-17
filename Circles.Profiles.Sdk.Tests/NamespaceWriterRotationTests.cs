@@ -13,7 +13,7 @@ public class NamespaceWriterRotationTests
     {
         var profile = new Profile();
         var store   = new InMemoryIpfsStore();
-        var writer  = await NamespaceWriter.CreateAsync(profile, "dst", store, new DefaultLinkSigner());
+        var writer  = await NamespaceWriter.CreateAsync(profile, "dst", store, new EoaLinkSigner());
 
         const int total = Helpers.ChunkMaxLinks * 2 + 5;   // ≥ 2 rotations
         var logicalNames = new List<string>();

@@ -19,13 +19,21 @@ public sealed class SafeLinkSigner : ILinkSigner
     private readonly IChainApi _chain;
 
     private static readonly ABIEncode Abi = new();
+
+    // IMPORTANT: Safe expects "SafeMessage(bytes message)"
     private static readonly byte[] SafeMsgTypeHash =
-        Sha3.Keccak256Bytes("SafeMessage(bytes)"u8);
+        Sha3.Keccak256Bytes("SafeMessage(bytes message)"u8);
+
+    private static readonly byte[] DomainTypeHash =
+        Sha3.Keccak256Bytes("EIP712Domain(uint256 chainId,address verifyingContract)"u8);
 
     public SafeLinkSigner(string safeAddress, IChainApi chain)
     {
-        if (string.IsNullOrWhiteSpace(safeAddress))
+        bool isEmpty = string.IsNullOrWhiteSpace(safeAddress);
+        if (isEmpty)
+        {
             throw new ArgumentException(nameof(safeAddress));
+        }
 
         _safe = safeAddress;
         _chain = chain;
@@ -36,20 +44,12 @@ public sealed class SafeLinkSigner : ILinkSigner
         var ownerKey = new EthECKey(ownerPrivKeyHex);
         link = link with { SignerAddress = _safe };
 
-        /* --- hashes --- */
+        // keccak(canonical JSON w/o signature)
         byte[] payloadHash = Sha3.Keccak256Bytes(
             CanonicalJson.CanonicaliseWithoutSignature(link));
 
-        byte[] safeTxHash = Sha3.Keccak256Bytes(
-            SafeMsgTypeHash.Concat(payloadHash).ToArray());
-
-        byte[] domainSeparator = BuildDomainSeparator(_chain.Id, _safe);
-
-        byte[] safeHash = Sha3.Keccak256Bytes(
-            new byte[] { 0x19, 0x01 }
-                .Concat(domainSeparator)
-                .Concat(safeTxHash)
-                .ToArray());
+        // EIP‑712 Safe message hash for the *payload bytes* (via their keccak)
+        byte[] safeHash = ComputeSafeHash(payloadHash, _chain.Id, _safe);
 
         var sig = ownerKey.SignAndCalculateV(safeHash);
         byte[] bytes = sig.To64ByteArray().Concat([sig.V[0]]).ToArray();
@@ -57,16 +57,31 @@ public sealed class SafeLinkSigner : ILinkSigner
         return link with { Signature = "0x" + bytes.ToHex() };
     }
 
-    private static byte[] BuildDomainSeparator(BigInteger chainId, string safe)
+    public static byte[] BuildDomainSeparator(BigInteger chainId, string safe)
     {
-        var typeHash = Sha3
-            .Keccak256Bytes("EIP712Domain(uint256 chainId,address verifyingContract)"u8);
-
         var encoded = Abi.GetABIEncoded(
-            new ABIValue("bytes32", typeHash),
+            new ABIValue("bytes32", DomainTypeHash),
             new ABIValue("uint256", chainId),
             new ABIValue("address", safe));
 
         return Sha3.Keccak256Bytes(encoded);
+    }
+
+    /// <summary>
+    /// Computes keccak(0x1901 || domainSeparator || keccak(SafeMessage(bytes message) || keccak(payloadBytes))).
+    /// The <paramref name="payloadHash"/> is keccak(payloadBytes).
+    /// </summary>
+    public static byte[] ComputeSafeHash(byte[] payloadHash, BigInteger chainId, string safe)
+    {
+        // keccak256(SafeMessage(bytes message) || keccak(payloadBytes))
+        byte[] safeMsg = Sha3.Keccak256Bytes(
+            SafeMsgTypeHash.Concat(payloadHash).ToArray());
+
+        // keccak256(0x1901 || domainSeparator || safeMsg)
+        byte[] domain = BuildDomainSeparator(chainId, safe);
+        return Sha3.Keccak256Bytes(new byte[] { 0x19, 0x01 }
+            .Concat(domain)
+            .Concat(safeMsg)
+            .ToArray());
     }
 }

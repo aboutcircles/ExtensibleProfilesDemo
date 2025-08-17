@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Circles.Profiles.Safe;
 using Nethereum.Web3;
 using Nethereum.Web3.Accounts;
 
@@ -6,7 +7,7 @@ namespace Circles.Profile.UI.Services;
 
 /// <summary>
 /// Persists already‑deployed single‑owner Safes in <c>safes.json</c>
-/// and deploys new ones via the shared <see cref="SafeHelpers"/> logic.
+/// and deploys new ones via the shared <see cref="SafeHelper"/> logic.
 /// </summary>
 internal sealed class SafeStore
 {
@@ -52,7 +53,7 @@ internal sealed class SafeStore
         /* 1) fund owner so the Safe can pay future gas (idempotent) */
         try
         {
-            await SafeHelpers.FundAsync(_web3, _deployer, owner.Address, 0.001, ct);
+            await SafeHelper.FundAsync(_web3, _deployer, owner.Address, 0.001, ct);
         }
         catch
         {
@@ -60,9 +61,9 @@ internal sealed class SafeStore
         }
 
         /* 2) deploy Safe (threshold = 1) */
-        string safeAddr = await SafeHelpers.DeploySafeAsync(
+        string safeAddr = await SafeHelper.DeploySafe141OnGnosisAsync(
             _web3,
-            new[] { _deployer.Address, owner.Address },
+            [_deployer.Address, owner.Address],
             threshold: 1,
             ct);
 

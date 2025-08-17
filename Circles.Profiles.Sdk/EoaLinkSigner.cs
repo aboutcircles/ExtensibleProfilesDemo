@@ -6,7 +6,7 @@ using Nethereum.Signer;
 
 namespace Circles.Profiles.Sdk;
 
-public sealed class DefaultLinkSigner : ILinkSigner
+public sealed class EoaLinkSigner : ILinkSigner
 {
     public CustomDataLink Sign(CustomDataLink link, string privKeyHex)
     {

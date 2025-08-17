@@ -30,6 +30,14 @@ public interface IChainApi
         byte[] signature,
         CancellationToken ct = default);
     
+    Task<SignatureCallResult> CallIsValidSignatureAsync(
+        string toAddress,
+        string abi,
+        byte[] dataOrHash,
+        byte[] signature,
+        string? callFrom,
+        CancellationToken ct = default);
+    
     Task<BigInteger> GetSafeNonceAsync(
         string safeAddress, CancellationToken ct = default);
 }

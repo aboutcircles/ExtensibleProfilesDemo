@@ -4,10 +4,10 @@ using Nethereum.Signer;
 namespace Circles.Profiles.Sdk.Tests;
 
 [TestFixture]
-public class DefaultLinkSignerTests
+public class EoaLinkSignerTests
 {
     private readonly string _priv = EthECKey.GenerateKey().GetPrivateKey();
-    private readonly DefaultLinkSigner _sut = new();
+    private readonly EoaLinkSigner _sut = new();
 
     private CustomDataLink MakeLink() => new()
     {

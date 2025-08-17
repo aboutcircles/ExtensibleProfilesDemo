@@ -46,7 +46,8 @@ public sealed class NamespaceWriter : INamespaceWriter
     {
         var w = new NamespaceWriter(ownerProfile, namespaceKey, ipfs, signer);
 
-        if (ownerProfile.Namespaces.TryGetValue(w._nsKeyLower, out var idxCid))
+        bool hasIndex = ownerProfile.Namespaces.TryGetValue(w._nsKeyLower, out var idxCid);
+        if (hasIndex)
         {
             w._index = await Helpers.LoadIndex(idxCid, ipfs, ct);
             w._head = await Helpers.LoadChunk(w._index.Head, ipfs, ct);
@@ -62,7 +63,7 @@ public sealed class NamespaceWriter : INamespaceWriter
         string pk,
         CancellationToken ct = default)
     {
-        var cid = await _ipfs.AddJsonAsync(json, pin: true, ct);
+        string cid = await _ipfs.AddJsonAsync(json, pin: true, ct);
         return await AttachExistingCidAsync(name, cid, pk, ct);
     }
 
@@ -72,9 +73,23 @@ public sealed class NamespaceWriter : INamespaceWriter
         string pk,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
-        if (string.IsNullOrWhiteSpace(cid)) throw new ArgumentNullException(nameof(cid));
-        if (string.IsNullOrWhiteSpace(pk)) throw new ArgumentNullException(nameof(pk));
+        bool nameEmpty = string.IsNullOrWhiteSpace(name);
+        if (nameEmpty)
+        {
+            throw new ArgumentNullException(nameof(name));
+        }
+
+        bool cidEmpty = string.IsNullOrWhiteSpace(cid);
+        if (cidEmpty)
+        {
+            throw new ArgumentNullException(nameof(cid));
+        }
+
+        bool pkEmpty = string.IsNullOrWhiteSpace(pk);
+        if (pkEmpty)
+        {
+            throw new ArgumentNullException(nameof(pk));
+        }
 
         var draft = new CustomDataLink
         {
@@ -99,25 +114,32 @@ public sealed class NamespaceWriter : INamespaceWriter
         string pk,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(pk))
+        bool pkEmpty = string.IsNullOrWhiteSpace(pk);
+        if (pkEmpty)
+        {
             throw new ArgumentNullException(nameof(pk));
+        }
 
         var vec = new List<CustomDataLink>();
 
         var itemsArray = items.ToArray();
 
-        if (itemsArray.Any(o => string.IsNullOrWhiteSpace(o.name)))
+        bool anyNameMissing = itemsArray.Any(o => string.IsNullOrWhiteSpace(o.name));
+        if (anyNameMissing)
+        {
             throw new ArgumentException("At least one of the items in the list doesn't have a name.", nameof(items));
+        }
 
         foreach (var (n, j) in itemsArray)
         {
             ct.ThrowIfCancellationRequested();
-            var cid = await _ipfs.AddJsonAsync(j, pin: true, ct);
+            string cid = await _ipfs.AddJsonAsync(j, pin: true, ct);
 
             vec.Add(new CustomDataLink
             {
                 Name = n,
                 Cid = cid,
+                ChainId = Helpers.DefaultChainId,
                 SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 Nonce = CustomDataLink.NewNonce(),
                 Encrypted = false
@@ -134,15 +156,25 @@ public sealed class NamespaceWriter : INamespaceWriter
         string pk,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(pk))
+        bool pkEmpty = string.IsNullOrWhiteSpace(pk);
+        if (pkEmpty)
+        {
             throw new ArgumentNullException(nameof(pk));
+        }
 
         var vec = items.Select(i =>
         {
-            if (string.IsNullOrWhiteSpace(i.name))
+            bool nameEmpty = string.IsNullOrWhiteSpace(i.name);
+            if (nameEmpty)
+            {
                 throw new ArgumentNullException(nameof(i.name));
-            if (string.IsNullOrWhiteSpace(i.cid))
+            }
+
+            bool cidEmpty = string.IsNullOrWhiteSpace(i.cid);
+            if (cidEmpty)
+            {
                 throw new ArgumentNullException(nameof(i.cid));
+            }
 
             return new CustomDataLink
             {
@@ -153,6 +185,7 @@ public sealed class NamespaceWriter : INamespaceWriter
                 Encrypted = false
             };
         }).ToList();
+
         vec = vec.Select(l => _signer.Sign(l, pk)).ToList();
         await PersistAsync(vec, ct);
         return vec;
@@ -166,28 +199,31 @@ public sealed class NamespaceWriter : INamespaceWriter
         {
             ct.ThrowIfCancellationRequested();
 
-            /* ── rotate if full ─────────────────────────────── */
-            if (_head.Links.Count >= Helpers.ChunkMaxLinks)
+            bool full = _head.Links.Count >= Helpers.ChunkMaxLinks;
+            if (full)
             {
                 string closedCid = await Helpers.SaveChunk(_head, _ipfs, ct);
 
                 foreach (var l in _head.Links)
+                {
                     _index.Entries[l.Name] = closedCid;
+                }
 
                 _head = new NamespaceChunk { Prev = closedCid };
             }
 
-            /* ── up‑sert … */
             int idx = _head.Links.FindIndex(l => l.Name.Equals(link.Name, StringComparison.OrdinalIgnoreCase));
-            if (idx >= 0)
+            bool exists = idx >= 0;
+            if (exists)
+            {
                 _head.Links[idx] = link;
+            }
             else
+            {
                 _head.Links.Add(link);
+            }
         }
 
-        /* ── flush with “only‑hash” pre‑commit ───────────────── */
-
-        // 1) pin head‑chunk first (same as before)
         string headCid = await Helpers.SaveChunk(_head, _ipfs, ct);
 
         foreach (var l in _head.Links)
@@ -197,21 +233,18 @@ public sealed class NamespaceWriter : INamespaceWriter
 
         _index.Head = headCid;
 
-        // 2) compute index CID **without pinning** (only‑hash)
         string indexJson = JsonSerializer.Serialize(_index, Helpers.JsonOpts);
         string indexCid = await _ipfs.CalcCidAsync(
             Encoding.UTF8.GetBytes(indexJson), ct);
 
-        // 3) publish the new CID into the in‑memory profile object
         _ownerProfile.Namespaces[_nsKeyLower] = indexCid;
 
-        // 4) finally pin the index bytes – CID is identical
         await _ipfs.AddJsonAsync(indexJson, pin: true, ct);
     }
 
     /// <summary>
     /// Inserts a <b>pre‑signed</b> link after validating
-    ///   • its signature <br/>
+    ///   • its signature
     ///   • signerAddress == namespace key (this writer’s <c>_nsKeyLower</c>)
     /// </summary>
     public async Task<CustomDataLink> AcceptSignedLinkAsync(
@@ -223,38 +256,57 @@ public sealed class NamespaceWriter : INamespaceWriter
         ArgumentNullException.ThrowIfNull(signedLink);
         ArgumentNullException.ThrowIfNull(operatorProfile);
 
-        /* 1) namespace guard (unchanged) */
-        if (!signedLink.SignerAddress.Equals(_nsKeyLower, StringComparison.OrdinalIgnoreCase))
+        bool sameNamespace = signedLink.SignerAddress.Equals(_nsKeyLower, StringComparison.OrdinalIgnoreCase);
+        if (!sameNamespace)
+        {
             throw new InvalidOperationException(
                 $"link signer ({signedLink.SignerAddress}) must equal namespace key ({_nsKeyLower})");
+        }
 
         var verifier = new DefaultSignatureVerifier(chain);
 
-        byte[] hash = Sha3.Keccak256Bytes(
-            CanonicalJson.CanonicaliseWithoutSignature(signedLink));
+        byte[] payload = CanonicalJson.CanonicaliseWithoutSignature(signedLink);
+        byte[] hash = Sha3.Keccak256Bytes(payload);
+        byte[] sig = signedLink.Signature.HexToByteArray();
 
-        bool sigOk = await verifier.VerifyAsync(
-            hash, signedLink.SignerAddress, signedLink.Signature.HexToByteArray(), ct);
+        bool primaryOk = await verifier.VerifyAsync(
+            hash,
+            signedLink.SignerAddress,
+            sig,
+            ct).ConfigureAwait(false);
 
-        if (!sigOk)
-            throw new InvalidOperationException("invalid signature on supplied link");
-
-        /* 3) Signing‑key validity check (EOA only) */
-        if (chain.GetCodeAsync(signedLink.SignerAddress, ct).Result == "0x")
+        bool needsBytesFallback = !primaryOk;
+        if (needsBytesFallback)
         {
-            // EOA path – recover pub‑key to derive fingerprint
-            var sig = Nethereum.Signer.EthECDSASignatureFactory.ExtractECDSASignature(signedLink.Signature);
-            var rec = Nethereum.Signer.EthECKey.RecoverFromSignature(sig, hash)
+            bool bytesOk = await verifier.Verify1271WithBytesAsync(
+                payload,
+                signedLink.SignerAddress,
+                sig,
+                ct).ConfigureAwait(false);
+
+            if (!bytesOk)
+            {
+                throw new InvalidOperationException("invalid signature on supplied link");
+            }
+        }
+
+        string code = await chain.GetCodeAsync(signedLink.SignerAddress, ct).ConfigureAwait(false);
+        bool isEoa = string.Equals(code, "0x", StringComparison.OrdinalIgnoreCase);
+        if (isEoa)
+        {
+            var sigObj = Nethereum.Signer.EthECDSASignatureFactory.ExtractECDSASignature(signedLink.Signature);
+            var rec = Nethereum.Signer.EthECKey.RecoverFromSignature(sigObj, hash)
                       ?? throw new InvalidOperationException("failed to recover public key");
 
             string fp = SigningKeyUtils.ComputeFingerprint(rec);
-            if (!SigningKeyUtils.IsFingerprintValid(fp, operatorProfile, signedLink.SignedAt))
+            bool keyValid = SigningKeyUtils.IsFingerprintValid(fp, operatorProfile, signedLink.SignedAt);
+            if (!keyValid)
+            {
                 throw new InvalidOperationException("signing key is expired / revoked");
+            }
         }
-        /* 4) Safe path is already covered by ERC‑1271 – no extra key list check */
 
-        /* 5) persist verbatim (unchanged) */
-        await PersistAsync([signedLink], ct);
+        await PersistAsync([signedLink], ct).ConfigureAwait(false);
         return signedLink;
     }
 }

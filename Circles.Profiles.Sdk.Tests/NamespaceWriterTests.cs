@@ -17,7 +17,7 @@ public class NamespaceWriterTests
         var profile = new Profile { Name = "t", Description = "d" };
         var ipfs = new InMemoryIpfsStore();
         var writer = await NamespaceWriter.CreateAsync(profile, nsKey, ipfs,
-            new DefaultLinkSigner());
+            new EoaLinkSigner());
 
         return (profile, ipfs, writer);
     }
@@ -68,7 +68,7 @@ public class NamespaceWriterTests
         var profile = new Profile();
         var ipfs = new InMemoryIpfsStore();
         var writer = await NamespaceWriter.CreateAsync(
-            profile, "dst", ipfs, new DefaultLinkSigner());
+            profile, "dst", ipfs, new EoaLinkSigner());
 
         string priv = EthECKey.GenerateKey().GetPrivateKey();
 
@@ -93,7 +93,7 @@ public class NamespaceWriterTests
         var profile = new Profile();
         var ipfs = new InMemoryIpfsStore();
         var writer = await NamespaceWriter.CreateAsync(
-            profile, "dst", ipfs, new DefaultLinkSigner());
+            profile, "dst", ipfs, new EoaLinkSigner());
 
         string priv = EthECKey.GenerateKey().GetPrivateKey();
 
@@ -130,7 +130,7 @@ public class NamespaceWriterTests
     {
         var user = new Profile();
         var ipfs = new InMemoryIpfsStore();
-        var signer = new DefaultLinkSigner();
+        var signer = new EoaLinkSigner();
 
         var writer = await NamespaceWriter.CreateAsync(
             user, /*nsKey*/"0xDappAddr", ipfs, signer);
@@ -164,7 +164,7 @@ public class NamespaceWriterTests
 
         var prof = new Profile();
         var ipfs = new InMemoryIpfsStore();
-        var signer = new DefaultLinkSigner(); // sign with dappKey later
+        var signer = new EoaLinkSigner(); // sign with dappKey later
 
         var writer = await NamespaceWriter.CreateAsync(
             prof, dappAddr, ipfs, signer);

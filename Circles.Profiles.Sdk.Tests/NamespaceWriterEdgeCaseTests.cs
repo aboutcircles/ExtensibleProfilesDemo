@@ -13,7 +13,7 @@ public class NamespaceWriterEdgeCaseTests
     {
         var p = new Profile { Name = "X", Description = "Y" };
         var s = new InMemoryIpfsStore();
-        var w = await NamespaceWriter.CreateAsync(p, nsKey, s, new DefaultLinkSigner());
+        var w = await NamespaceWriter.CreateAsync(p, nsKey, s, new EoaLinkSigner());
         return (p, s, w);
     }
 

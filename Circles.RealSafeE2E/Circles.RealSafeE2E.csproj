@@ -22,6 +22,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Circles.Profiles.Safe\Circles.Profiles.Safe.csproj" />
       <ProjectReference Include="..\Circles.Profiles.Sdk\Circles.Profiles.Sdk.csproj" />
     </ItemGroup>
 
