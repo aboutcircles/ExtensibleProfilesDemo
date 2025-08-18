@@ -1,12 +1,11 @@
 using Circles.Profiles.Interfaces;
 using Nethereum.ABI.FunctionEncoding.Attributes;
 using Nethereum.Contracts;
-using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Web3;
 
 namespace Circles.Profiles.Sdk;
 
-file static class Abi
+public static class NameRegistryConsts
 {
     public const string ContractAbi = """
                                       [
@@ -33,6 +32,9 @@ file sealed class UpdateDigest : FunctionMessage
 /// <summary>
 /// On‑chain name‑registry client with a guard that prevents
 /// “EOA tries to update Safe profile” foot‑guns. 
+/// Advanced callers may set <paramref name="strict"/> to <c>false</c>
+/// to skip the avatar ≙ signer check (e.g. when the call is wrapped
+/// in a Gnosis Safe <c>execTransaction</c>).
 /// </summary>
 public sealed class NameRegistry : INameRegistry
 {
@@ -45,32 +47,38 @@ public sealed class NameRegistry : INameRegistry
         var acct = new Nethereum.Web3.Accounts.Account(signerPrivKey);
         _signer = acct.Address;
         _web3 = new Web3(acct, rpcUrl);
-        _contract = _web3.Eth.GetContract(Abi.ContractAbi, Abi.ContractAddress);
+        _contract = _web3.Eth.GetContract(NameRegistryConsts.ContractAbi, NameRegistryConsts.ContractAddress);
     }
 
-    /* ───────────────── read ───────────────── */
+    /* ───────────────────────────── read ───────────────────────────── */
 
     public async Task<string?> GetProfileCidAsync(string avatar, CancellationToken _ = default)
     {
         var fn = _contract.GetFunction("getMetadataDigest");
         var digest = await fn.CallAsync<byte[]>(avatar);
-        return digest.All(b => b == 0) ? null : CidConverter.DigestToCid(digest);
+        return digest.All(b => b == 0)
+            ? null
+            : CidConverter.DigestToCid(digest);
     }
 
-    /* ───────────────── write (EOA path) ───────────────── */
+    /* ───────────────────────────── write ──────────────────────────── */
 
-    public Task<string?> UpdateProfileCidAsync(string avatar, byte[] digest32,
+    public Task<string?> UpdateProfileCidAsync(
+        string avatar,
+        byte[] digest32,
         CancellationToken ct = default) =>
-        UpdateProfileCidAsync(avatar, (ReadOnlyMemory<byte>)digest32, ct);
+        UpdateProfileCidAsync(avatar, digest32, ct, strict: true);
 
-    public async Task<string?> UpdateProfileCidAsync(string avatar,
+    public async Task<string?> UpdateProfileCidAsync(
+        string avatar,
         ReadOnlyMemory<byte> digest32,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool strict = true)
     {
-        if (!avatar.Equals(_signer, StringComparison.OrdinalIgnoreCase))
+        if (strict && !avatar.Equals(_signer, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException(
                 $"avatar ({avatar}) must equal tx‑signer ({_signer}). " +
-                "For Safe accounts wrap the call in execTransaction.");
+                "For Safe accounts wrap the call in execTransaction().");
 
         var handler = _web3.Eth.GetContractTransactionHandler<UpdateDigest>();
         var tx = new UpdateDigest
@@ -79,8 +87,7 @@ public sealed class NameRegistry : INameRegistry
             FromAddress = _signer
         };
 
-        var receipt = await handler.SendRequestAndWaitForReceiptAsync(
-            Abi.ContractAddress, tx, ct);
+        var receipt = await handler.SendRequestAndWaitForReceiptAsync(NameRegistryConsts.ContractAddress, tx, ct);
         return receipt.TransactionHash;
     }
 }

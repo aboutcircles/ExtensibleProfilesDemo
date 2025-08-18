@@ -19,8 +19,8 @@ public class InboxSimulationTests
         var aliceProfile = new Profile();
         var bobProfile = new Profile();
 
-        _ = await NamespaceWriter.CreateAsync(aliceProfile, /*nsKey*/"Bob", store, new DefaultLinkSigner());
-        var b2A = await NamespaceWriter.CreateAsync(bobProfile, /*nsKey*/"Alice", store, new DefaultLinkSigner());
+        _ = await NamespaceWriter.CreateAsync(aliceProfile, /*nsKey*/"Bob", store, new EoaLinkSigner());
+        var b2A = await NamespaceWriter.CreateAsync(bobProfile, /*nsKey*/"Alice", store, new EoaLinkSigner());
 
         /* ------- Bob sends two messages ------- */
         await b2A.AddJsonAsync("msg-1", """{"txt":"hi"}""", _bPriv);
@@ -75,7 +75,7 @@ public class InboxSimulationTests
         var bob = new Profile { Name = "Bob", Description = "desc" };
 
         // Bob sends a message to Alice (the normal use-case)
-        var bobToAliceWriter = await NamespaceWriter.CreateAsync(bob, aAddr, ipfs, new DefaultLinkSigner());
+        var bobToAliceWriter = await NamespaceWriter.CreateAsync(bob, aAddr, ipfs, new EoaLinkSigner());
         var msgObj = new ChatMessage
         {
             From = bAddr,

@@ -1,6 +1,8 @@
-using System.Text;
+using Circles.Profiles.Interfaces;
 using Circles.Profiles.Models;
 using Circles.Profiles.Sdk.Tests.Mocks;
+using Moq;
+using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Signer;
 
 namespace Circles.Profiles.Sdk.Tests;
@@ -15,9 +17,11 @@ public class NamespaceWriterTests
         var profile = new Profile { Name = "t", Description = "d" };
         var ipfs = new InMemoryIpfsStore();
         var writer = await NamespaceWriter.CreateAsync(profile, nsKey, ipfs,
-            new DefaultLinkSigner());
+            new EoaLinkSigner());
+
         return (profile, ipfs, writer);
     }
+
 
     [Test]
     public async Task AddJsonAsync_AddsLink_AndPinsBlob()
@@ -64,7 +68,7 @@ public class NamespaceWriterTests
         var profile = new Profile();
         var ipfs = new InMemoryIpfsStore();
         var writer = await NamespaceWriter.CreateAsync(
-            profile, "dst", ipfs, new DefaultLinkSigner());
+            profile, "dst", ipfs, new EoaLinkSigner());
 
         string priv = EthECKey.GenerateKey().GetPrivateKey();
 
@@ -89,7 +93,7 @@ public class NamespaceWriterTests
         var profile = new Profile();
         var ipfs = new InMemoryIpfsStore();
         var writer = await NamespaceWriter.CreateAsync(
-            profile, "dst", ipfs, new DefaultLinkSigner());
+            profile, "dst", ipfs, new EoaLinkSigner());
 
         string priv = EthECKey.GenerateKey().GetPrivateKey();
 
@@ -106,7 +110,7 @@ public class NamespaceWriterTests
         Assert.That(idxDoc.Entries.Count, Is.EqualTo(total));
         Assert.That(idxDoc.Head, Is.Not.Empty);
     }
-    
+
     [Test]
     public void LoadChunk_InvalidJson_ThrowsWithCid()
     {
@@ -119,5 +123,82 @@ public class NamespaceWriterTests
             await Helpers.LoadChunk(cid, ipfs));
 
         Assert.That(ex!.Message, Does.Contain(cid));
+    }
+
+    [Test]
+    public async Task AcceptSignedLinkAsync_Rejects_WrongNamespace()
+    {
+        var user = new Profile();
+        var ipfs = new InMemoryIpfsStore();
+        var signer = new EoaLinkSigner();
+
+        var writer = await NamespaceWriter.CreateAsync(
+            user, /*nsKey*/"0xDappAddr", ipfs, signer);
+
+        var badLink = signer.Sign(new CustomDataLink
+        {
+            Name = "settings",
+            Cid = "CID‑x",
+            ChainId = Helpers.DefaultChainId,
+            SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Nonce = CustomDataLink.NewNonce(),
+            Encrypted = false
+        }, /*priv*/EthECKey.GenerateKey().GetPrivateKey());
+
+        // signerAddress ≠ namespace key – must throw
+        var dummyChain = new Mock<IChainApi>();
+        dummyChain.SetupGet(c => c.Id)
+            .Returns(Helpers.DefaultChainId);
+        dummyChain.Setup(c => c.GetCodeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("0x");
+
+        Assert.ThrowsAsync<InvalidOperationException>(() =>
+            writer.AcceptSignedLinkAsync(badLink, new Profile(), dummyChain.Object));
+    }
+
+    [Test]
+    public async Task AcceptSignedLinkAsync_HappyPath_WritesLink()
+    {
+        var dappKey = EthECKey.GenerateKey();
+        var dappAddr = dappKey.GetPublicAddress();
+
+        var prof = new Profile();
+        var ipfs = new InMemoryIpfsStore();
+        var signer = new EoaLinkSigner(); // sign with dappKey later
+
+        var writer = await NamespaceWriter.CreateAsync(
+            prof, dappAddr, ipfs, signer);
+
+        var link = signer.Sign(new CustomDataLink
+        {
+            Name = "theme",
+            Cid = "CID‑settings",
+            ChainId = Helpers.DefaultChainId,
+            SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Nonce = CustomDataLink.NewNonce(),
+            Encrypted = false
+        }, dappKey.GetPrivateKey());
+
+        // build minimal operator profile with valid key‑fp
+        string fp = SigningKeyUtils.ComputeFingerprint(dappKey);
+        var dappProfile = new Profile();
+        dappProfile.SigningKeys[fp] = new SigningKey
+        {
+            PublicKey = "0x" + dappKey.GetPubKey(false).ToHex(),
+            ValidFrom = 0
+        };
+
+        // mock chain so no external RPC
+        var chainMock = new Mock<IChainApi>();
+        chainMock.SetupGet(c => c.Id)
+            .Returns(Helpers.DefaultChainId);
+        chainMock.Setup(c => c.GetCodeAsync(dappAddr, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("0x");
+
+        await writer.AcceptSignedLinkAsync(link, dappProfile, chainMock.Object);
+
+        var idxCid = prof.Namespaces[dappAddr.ToLowerInvariant()];
+        var idxDoc = await Helpers.LoadIndex(idxCid, ipfs);
+        Assert.That(idxDoc.Entries, Contains.Key("theme"));
     }
 }

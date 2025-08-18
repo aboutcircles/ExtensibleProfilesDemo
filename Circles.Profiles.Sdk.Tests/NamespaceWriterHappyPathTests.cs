@@ -12,7 +12,7 @@ public class NamespaceWriterHappyPathTests
     {
         var p = new Profile { Name = "Alice", Description = "Demo" };
         var s = new InMemoryIpfsStore();
-        return (p, s, await NamespaceWriter.CreateAsync(p, nsKey, s, new DefaultLinkSigner()));
+        return (p, s, await NamespaceWriter.CreateAsync(p, nsKey, s, new EoaLinkSigner()));
     }
 
     [Test]

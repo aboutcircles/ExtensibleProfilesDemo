@@ -59,7 +59,7 @@ public sealed class IpfsStore : IIpfsStore, IAsyncDisposable
             HttpCompletionOption.ResponseHeadersRead, ct);
         res.EnsureSuccessStatusCode();
 
-        if (res.Content.Headers.ContentLength is long len and > MaxJsonBytes)
+        if (res.Content.Headers.ContentLength is { } len and > MaxJsonBytes)
         {
             throw new IOException(
                 $"IPFS response advertises {len:N0} bytes – exceeds hard cap of {MaxJsonBytes:N0} bytes");

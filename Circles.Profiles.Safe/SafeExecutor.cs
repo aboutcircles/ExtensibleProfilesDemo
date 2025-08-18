@@ -5,14 +5,14 @@ using Nethereum.Model;
 using Nethereum.Signer;
 using Nethereum.Web3;
 
-namespace Circles.Profiles.Sdk;
+namespace Circles.Profiles.Safe;
 
 /// <summary>
 /// Executes a single‑sig <c>execTransaction</c> on a Gnosis Safe.
 /// Assumes a **single owner** Safe, <c>operation = CALL</c>,
 /// and that the owner account (EOA) is the <see cref="Web3.TransactionManager"/> account.
 /// </summary>
-public sealed class GnosisSafeExecutor
+public sealed class SafeExecutor
 {
     /* ───────────── embedded ABI (v1.3.0) ───────────── */
     private const string SafeAbi = """
@@ -57,7 +57,7 @@ public sealed class GnosisSafeExecutor
     private readonly Web3 _web3;
     private readonly Contract _safe;
 
-    public GnosisSafeExecutor(Web3 web3, string safeAddress)
+    public SafeExecutor(Web3 web3, string safeAddress)
     {
         _web3 = web3 ?? throw new ArgumentNullException(nameof(web3));
         _safe = _web3.Eth.GetContract(SafeAbi, safeAddress);
@@ -81,9 +81,9 @@ public sealed class GnosisSafeExecutor
     {
         if (safeTxGas == default) safeTxGas = new BigInteger(150_000);
 
-        const byte   CALL      = 0;
-        const string ZERO_ADDR = "0x0000000000000000000000000000000000000000";
-        BigInteger   zero      = BigInteger.Zero;
+        const byte call = 0;
+        const string zeroAddr = "0x0000000000000000000000000000000000000000";
+        BigInteger zero = BigInteger.Zero;
 
         /* ─── 1) obtain nonce + hash ─────────────────────────── */
         var nonceFn = _safe.GetFunction("nonce");
@@ -91,29 +91,54 @@ public sealed class GnosisSafeExecutor
 
         var hashFn = _safe.GetFunction("getTransactionHash");
         byte[] txHash = await hashFn.CallAsync<byte[]>(
-            to, value, data, CALL,
+            to, value, data, call,
             safeTxGas, zero, zero,
-            ZERO_ADDR, ZERO_ADDR, nonce).ConfigureAwait(false);
+            zeroAddr, zeroAddr, nonce).ConfigureAwait(false);
 
         /* ─── 2) EOA signs hash ─────────────────────────────── */
         var acct = (Nethereum.Web3.Accounts.Account)_web3.TransactionManager.Account;
-        var key  = new EthECKey(acct.PrivateKey);
-        var sig  = key.SignAndCalculateV(txHash);
+        var key = new EthECKey(acct.PrivateKey);
+        var sig = key.SignAndCalculateV(txHash);
 
         // 65‑byte packed (R || S || V)
         byte[] sigBytes = sig.To64ByteArray().Concat([sig.V[0]]).ToArray();
 
-        /* ─── 3) execTransaction ────────────────────────────── */
+        /* ─── 3) preflight: static-call execTransaction ─────── */
         var execFn = _safe.GetFunction("execTransaction");
+        bool wouldSucceed = await execFn.CallAsync<bool>(
+            from: acct.Address,
+            gas: null,
+            value: null,
+            functionInput: new object[]
+            {
+                to, value, data, call,
+                safeTxGas, zero, zero,
+                zeroAddr, zeroAddr,
+                sigBytes
+            }).ConfigureAwait(false);
+
+        if (!wouldSucceed)
+        {
+            throw new InvalidOperationException(
+                "Safe.execTransaction would return false. " +
+                "Check owner, nonce, gas, and signature packing.");
+        }
+
+        /* ─── 4) send tx and wait ───────────────────────────── */
         var receipt = await execFn.SendTransactionAndWaitForReceiptAsync(
             acct.Address,
-            new HexBigInteger(600_000),          // outer tx gas
-            new HexBigInteger(0),                // value
+            new HexBigInteger(600_000), // outer tx gas
+            new HexBigInteger(0), // value
             ct,
-            to, value, data, CALL,
+            to, value, data, call,
             safeTxGas, zero, zero,
-            ZERO_ADDR, ZERO_ADDR,
+            zeroAddr, zeroAddr,
             sigBytes).ConfigureAwait(false);
+
+        if (receipt.Status == null || receipt.Status.Value == 0)
+        {
+            throw new InvalidOperationException("execTransaction reverted: " + receipt.TransactionHash);
+        }
 
         return receipt.TransactionHash;
     }
