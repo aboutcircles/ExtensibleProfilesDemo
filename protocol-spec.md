@@ -290,16 +290,30 @@ in lowercase in `profile.namespaces`.
     * If the **logical name** already exists **in the head**, replace that element; else append.
 * **Commit (with pin confirmation):**
 
+    0. **Rebase (normative):** Immediately **before** serializing the profile JSON:
+        1. Resolve the latest profile digest for `ownerAvatar` via the registry.
+        2. Fetch that profile JSON by CIDv0.
+        3. Re‑apply the staged `namespaces[namespaceKeyLower] = indexCid` mutations **onto that latest profile object**.
+        4. Proceed with serialization/pinning of this **rebased** profile.
+           *If the registry digest changes again between this step and the registry call below, last‑writer‑wins applies; writers MAY optionally retry once.*
     1. Pin the current head → `headCid`. **If the pin cannot be confirmed, the write MUST fail.**
     2. For each link in the head, set `index.entries[link.name] = headCid`.
     3. Set `index.head = headCid`.
     4. Serialize `index`, compute CIDv0 (`indexCid`), **pin index**. **If the pin cannot be confirmed, the write MUST
        fail and the profile MUST NOT be mutated.**
-    5. Update `profile.namespaces[namespaceKeyLower] = indexCid`.
+    5. Update **(rebased)** `profile.namespaces[namespaceKeyLower] = indexCid`.
     6. Serialize profile JSON, pin, compute `digest32`. **If the pin cannot be confirmed, the publish MUST fail.**
     7. Call the registry (§3) with `digest32`.
 
 **Size rule:** Any IPFS write that later must be read by clients MUST respect the **8 MiB** per‑object limit.
+
+### 7.2 Atomic commit and multi‑namespace batching (normative)
+
+**Atomicity (per publish):** A publish operation MUST be **all‑or‑nothing** across **all** objects it intends to mutate (all involved chunks, indices, and the profile). If any required pin or precondition fails, the publish MUST NOT change the profile digest.
+
+**Batching across namespaces:** A client MAY stage updates for **multiple namespaces** belonging to the same `ownerAvatar` and publish them in **one** profile update, provided §7.1’s rules are satisfied for each namespace and the **atomicity** rule above is respected.
+
+**Rationale (non‑normative):** Prevents partial publishes and aligns base writes with proposer‑bundle acceptance flows while reducing on‑chain updates.
 
 ---
 
@@ -313,19 +327,21 @@ Given `senderAvatar` and `namespaceKey`:
    entries whose keys are not valid addresses.
 4. **Fetch index:** `idxCid = profile.namespaces[namespaceKeyLower]`. If missing → nothing to read.
 5. **Walk chunks:** start at `cur = index.head`; iterate `prev` pointers.
-6. **Verify each link:**
-
-    * Compute payload bytes (canonical JSON without `signature`) and its keccak.
-    * Verify signature (EOA or Safe) per §6.
-    * **Replay scope (normative):** enforce duplicate‑nonce detection **per tuple**
-      `(<namespaceOwner>, <namespaceKey>, <signerAddress>)`.
-      Implementations MUST NOT treat the same nonce reused in a different tuple as a replay.
+6. **Verify each link (normative order):**
+    1. **Canonical bytes:** compute canonical JSON of the link **with `signature` removed** (per §5), and its keccak.
+    2. **Signature:** verify cryptographically (EOA or Safe) per §6. Drop the link on cryptographic failure (no exception).
+    3. **Chain domain:** require `link.chainId == verifyingChainId`; otherwise **drop** (no error).
+    4. **Replay scope (normative):** enforce duplicate‑nonce detection **only among links that passed (2) and (3)**,
+       scoped to the tuple `(<namespaceOwner>, <namespaceKey>, <signerAddress>)`.
+       Implementations MUST NOT treat the same nonce reused in a different tuple as a replay.
 7. **Ordering (normative):** present links **newest‑first** by `signedAt` descending.
    **Tie‑break:** if `signedAt` is equal, higher array index within its chunk is considered newer.
-8. **Aggregation guidance (non‑normative):** when aggregating across directions or mirrored copies, de‑duplicate *
-   *byte‑identical links** using `keccak256(canonical link JSON without signature)`.
+8. **Aggregation guidance (non‑normative):** when aggregating across directions or mirrored copies, de‑duplicate \*
+   *byte‑identical links*\* using `keccak256(canonical link JSON without signature)`.
 
 **Failure policy:** Drop cryptographically invalid links; throw on IPFS/RPC/transport failures.
+
+**Note (non‑normative, early‑stop):** Readers **MUST NOT** early‑stop a chunk walk solely because a link’s `signedAt` falls outside a query window. Storage order is by **append/count, not time**; older chunks may contain **newer** `signedAt` values, and array order within a chunk is not time‑sorted. Correct, windowed scans require walking the full `head → prev → …` chain (or using a separate, explicitly‑trusted optimization).
 
 ---
 
@@ -380,8 +396,9 @@ signatures      = single 65B owner signature (R||S||V) over getTransactionHash(.
 
 * **Cryptographic invalid** → drop the link.
 * **Replay** per §8 tuple scope → drop the link.
-* **Pinning failure:** failure to pin a CID that MUST be pinned (writer commit, index, profile, or mirror payload) → *
-  *throw**; include the CID and pin target(s) in the error.
+* **Pinning failure:** failure to pin a CID that MUST be pinned (writer commit, index, profile, or mirror payload) → \*
+  *throw*\*; include the CID and pin target(s) in the error. **Writes are atomic:** partial mutations MUST NOT be
+  published.
 * **Malformed JSON** (profile/index/chunk) → throw; include the offending CID in the error.
 * **Transport / RPC errors** → throw.
 * **CID policy violated** (not CIDv0 where required) → reject/throw.
@@ -448,19 +465,23 @@ sequenceDiagram
     participant IPFS
     participant Registry
     participant RPC as Ethereum Node
-    App ->> IPFS: Add payload JSON → CIDv0
-    App ->> App: Build link (nonce 16B, signedAt, chainId, signerAddress=EOA)
-    App ->> App: Canonicalise (no signature) → bytes, keccak
-  App->>App: ECDSA sign (low‑S) → 65B sig
-App->>IPFS: Update chunk/index, pin head & index (fail on pin error)
-App->>IPFS: Save profile JSON, compute CIDv0 → digest32 (fail on pin error)
-App->>Registry: updateMetadataDigest(digest32) (from EOA)
-Registry-->>App: receipt status=1
+    App ‑>> IPFS: Add payload JSON → CIDv0
+    App ‑>> App: Build link (nonce 16B, signedAt, chainId, signerAddress=EOA)
+    App ‑>> App: Canonicalise (no signature) → bytes, keccak
+    App ‑>> App: ECDSA sign (low‑S) → 65B sig
+    App ‑>> IPFS: Update chunk/index, pin head & index (fail on pin error)
+    App ‑>> Registry: getMetadataDigest(avatar)
+    Registry ‑‑>> App: digest32 (latest)
+    App ‑>> IPFS: Fetch latest profile by CIDv0 (rebase)
+    App ‑>> App: Re‑apply staged namespaces[...] to latest profile
+    App ‑>> IPFS: Save rebased profile JSON, compute CIDv0 → digest32 (fail on pin error)
+    App ‑>> Registry: updateMetadataDigest(digest32) (from EOA)
+    Registry ‑‑>> App: receipt status=1
 
-App->>Registry: getMetadataDigest(sender)
-Registry-->>App: digest32
-App->>IPFS: Fetch profile → idx → chunk(s)
-App->>App: Verify links, replay scoped per (owner, key, signer), order newest→oldest
+    App ‑>> Registry: getMetadataDigest(sender)
+    Registry ‑‑>> App: digest32
+    App ‑>> IPFS: Fetch profile → idx → chunk(s)
+    App ‑>> App: Verify links, replay scoped per (owner, key, signer), order newest→oldest
 ```
 
 ### 14.2 Safe write + publish
@@ -474,18 +495,21 @@ sequenceDiagram
     participant Safe as Gnosis Safe
     participant Registry
     participant RPC
-    App ->> IPFS: Add payload → CIDv0
-    App ->> App: Draft link (signerAddress=Safe), canonicalise → bytes, keccak
-  App->>App: Compute Safe hash (domain(chainId,safe), SafeMessage(keccak))
-Owner->>App: Sign safeHash → 65B sig
-App->>IPFS: Update chunk/index, save profile, compute digest32 (fail on pin error)
+    App ‑>> IPFS: Add payload → CIDv0
+    App ‑>> App: Draft link (signerAddress=Safe), canonicalise → bytes, keccak
+    App ‑>> App: Compute Safe hash (domain(chainId,safe), SafeMessage(keccak))
+    Owner ‑>> App: Sign safeHash → 65B sig
+    App ‑>> IPFS: Update chunk/index (fail on pin error)
+    App ‑>> Registry: getMetadataDigest(avatar)
+    Registry ‑‑>> App: digest32 (latest)
+    App ‑>> IPFS: Fetch latest profile by CIDv0 (rebase)
+    App ‑>> App: Re‑apply staged namespaces[...] to latest profile
+    App ‑>> Safe: execTransaction( to=Registry, data=updateMetadataDigest(digest32), …, signatures=ownerSig )
+    Safe ‑>> Registry: updateMetadataDigest
+    Registry ‑‑>> Safe: ok
+    Safe ‑‑>> App: receipt status=1
 
-App->>Safe: execTransaction( to=Registry, data=updateMetadataDigest(digest32), …, signatures=ownerSig )
-Safe->>Registry: updateMetadataDigest
-Registry-->>Safe: ok
-Safe-->>App: receipt status=1
-
-Note over App: Reader uses ERC‑1271(bytes) with eth_call.from = Safe
+    Note over App: Reader uses ERC‑1271(bytes) with eth_call.from = Safe
 ```
 
 ### 14.3 Wallet accepts operator EOA link
@@ -496,14 +520,14 @@ sequenceDiagram
     participant DApp
     participant Wallet
     participant IPFS
-    DApp ->> Wallet: signedLink (signerAddress = dApp EOA)
-    Wallet ->> IPFS: Load dApp profile (for signingKeys)
-    Wallet ->> Wallet: Verify EOA sig + fingerprint validity at signedAt
-alt valid
-Wallet->>IPFS: Insert into (user, dApp EOA) namespace, pin, publish
-else invalid
-Wallet-->>DApp: reject
-end
+    DApp ‑>> Wallet: signedLink (signerAddress = dApp EOA)
+    Wallet ‑>> IPFS: Load dApp profile (for signingKeys)
+    Wallet ‑>> Wallet: Verify EOA sig + fingerprint validity at signedAt
+    alt valid
+        Wallet ‑>> IPFS: Insert into (user, dApp EOA) namespace, pin, publish
+    else invalid
+        Wallet ‑‑>> DApp: reject
+    end
 ```
 
 ### 14.4 Direct mirror (“copy + pin”)
@@ -515,12 +539,12 @@ sequenceDiagram
     participant Recipient
     participant IPFS
     participant Registry
-    Sender ->> IPFS: Original link posted in (sender, recipient) namespace
-    Recipient ->> Registry: Resolve sender profile → index → chunk → link
-    Recipient ->> Recipient: Verify signature, tuple scope prevents replay collision
-  Recipient->>IPFS: Pin payload CID (required)
-Recipient->>IPFS: Insert the **same** link bytes into (recipient, sender) namespace, pin head/index
-Recipient->>Registry: Publish updated recipient profile (digest32)
+    Sender ‑>> IPFS: Original link posted in (sender, recipient) namespace
+    Recipient ‑>> Registry: Resolve sender profile → index → chunk → link
+    Recipient ‑>> Recipient: Verify signature, tuple scope prevents replay collision
+    Recipient ‑>> IPFS: Pin payload CID (required)
+    Recipient ‑>> IPFS: Insert the **same** link bytes into (recipient, signer) namespace, pin head/index
+    Recipient ‑>> Registry: Publish updated recipient profile (digest32)
 ```
 
 ---
@@ -548,14 +572,15 @@ Recipient->>Registry: Publish updated recipient profile (digest32)
 3. Canonical payload bytes and keccak match the reference for test vectors.
 4. EOA signatures are low‑S; high‑S is rejected.
 5. Safe signatures validate via ERC‑1271(bytes) with `from = <safe>`.
-6. Namespace writer rotates at 100 links; index/head semantics match §7.1.
-7. Readers verify links, **scope replay per tuple**, and order as §8.
-8. All IPFS reads respect the **8 MiB** per‑object limit.
-9. **Mirroring:** a byte‑for‑byte `CustomDataLink` signed by a third party can be inserted into `(recipient, signer)`and
-   verifies under §6.
-10. **Pinning (writes):** writers pin head/index/profile/payload; writes fail on pin failure.
-11. **Pinning (mirrors):** mirrorers pin mirrored payloads (and SHOULD pin head/index).
-12. Optional `mirror.v1` payload (§20.2) validates (fields’ shapes) and respects size cap.
+6. **Writer atomicity:** updates are atomic per §7.2; rotation semantics match §7.1; **rebase before serialize** is implemented.
+7. **Batching:** multiple namespaces for one owner MAY be published in a single atomic update.
+8. Readers verify links, **scope replay per tuple**, and order as §8.
+9. All IPFS reads respect the **8 MiB** per‑object limit.
+10. **Mirroring:** a byte‑for‑byte `CustomDataLink` signed by a third party can be inserted into `(recipient, signer)` and
+    verifies under §6.
+11. **Pinning (writes):** writers pin head/index/profile/payload; writes fail on pin failure.
+12. **Pinning (mirrors):** mirrorers pin mirrored payloads (and SHOULD pin head/index).
+13. **Order‑of‑checks:** readers perform signature → chain check → tuple‑scoped replay, in that order (§8.6). Readers do **not** early‑stop chunk walks based solely on `signedAt` window boundaries.
 
 ---
 
@@ -746,6 +771,7 @@ Recipient->>Registry: Publish updated recipient profile (digest32)
 * Treat `namespaces` keys that are not addresses as invalid input; ignore when reading, never produce when writing.
 * For Safe verification, always set `eth_call.from = signerAddress`.
 * Prefer pinning to **multiple** targets for durability (local node + remote service).
+* **Windowed reads (non‑normative):** The storage layout is **append‑ordered**, not time‑ordered. A link with `signedAt` outside a desired time window **does not** imply that the remaining tail is out‑of‑window. Readers that need a strict, trustless result **must** walk the full chain (`head → prev → ...`) or rely on a separate, explicitly‑trusted optimization layer.
 
 ---
 
@@ -773,8 +799,8 @@ Recipient->>Registry: Publish updated recipient profile (digest32)
 * **Write rule:** When mirroring, writers **MUST NOT** modify any field of the mirrored `CustomDataLink`.
 * **Replay scope:** The tuple rule in §8 ensures that the mirror’s nonce does **not** collide with the original;
   implementations MUST scope duplicate‑nonce detection per `(<namespaceOwner>, <namespaceKey>, <signerAddress>)`.
-* **Pinning (required):** On mirror, clients **MUST attempt to pin** the `cid` referenced by the mirrored link and *
-  *MUST fail** the operation if pinning cannot be confirmed.
+* **Pinning (required):** On mirror, clients **MUST attempt to pin** the `cid` referenced by the mirrored link and \*
+  *MUST fail*\* the operation if pinning cannot be confirmed.
 * **Index/profile updates:** Mirrorers SHOULD pin their updated head/index/profile CIDs as part of publishing.
 * **Aggregation guidance:** UIs **SHOULD** de‑duplicate byte‑identical links across `(A,B)` and `(B,A)` using
   `keccak256(canonical link JSON without signature)`.
