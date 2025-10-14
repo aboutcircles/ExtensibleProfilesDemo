@@ -15,6 +15,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documents", "Documents", "{
 		proposer-pattern.md = proposer-pattern.md
 		aggregator-pattern.md = aggregator-pattern.md
 		paid-dms.md = paid-dms.md
+		product-catalog.md = product-catalog.md
+		SPEC-INDEX.md = SPEC-INDEX.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.RealSafeE2E", "Circles.RealSafeE2E\Circles.RealSafeE2E.csproj", "{5E09C14D-6E1B-4976-970A-5A463DA5C4B8}"
