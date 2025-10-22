@@ -235,7 +235,7 @@ public sealed class NamespaceWriter : INamespaceWriter
 
         _index.Head = headCid;
 
-        string indexJson = JsonSerializer.Serialize(_index, Helpers.JsonOpts);
+        string indexJson = JsonSerializer.Serialize(_index, Models.JsonSerializerOptions.JsonLd);
         string indexCid = await _ipfs.CalcCidAsync(
             Encoding.UTF8.GetBytes(indexJson), ct);
 

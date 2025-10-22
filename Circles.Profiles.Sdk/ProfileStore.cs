@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Circles.Profiles.Interfaces;
-using Circles.Profiles.Models;
 using Circles.Profiles.Models.Core;
 using Circles.Profiles.Sdk.Utils;
 using Nethereum.Signer;
@@ -28,7 +27,7 @@ public sealed class ProfileStore : IProfileStore
         }
 
         await using var s = await _ipfs.CatAsync(cid, ct);
-        return await JsonSerializer.DeserializeAsync<Profile>(s, Helpers.JsonOpts, ct);
+        return await JsonSerializer.DeserializeAsync<Profile>(s, Models.JsonSerializerOptions.JsonLd, ct);
     }
 
     public async Task<(Profile prof, string cid)> SaveAsync(
@@ -37,7 +36,7 @@ public sealed class ProfileStore : IProfileStore
         CancellationToken ct = default)
     {
         /* ---------- 1) pin profile JSON ---------- */
-        var json = JsonSerializer.Serialize(profile, Helpers.JsonOpts);
+        var json = JsonSerializer.Serialize(profile, Models.JsonSerializerOptions.JsonLd);
         var cid = await _ipfs.AddStringAsync(json, pin: true, ct);
 
         /* ---------- 2) registry update ---------- */

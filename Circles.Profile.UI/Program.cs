@@ -34,7 +34,7 @@ async Task AddNamespace(
 
     // Create a proper empty index document and pin it so we have a valid CID.
     var emptyIndex = new NameIndexDoc(); // head="", entries={}
-    string indexJson = JsonSerializer.Serialize(emptyIndex, Helpers.JsonOpts);
+    string indexJson = JsonSerializer.Serialize(emptyIndex, Circles.Profiles.Models.JsonSerializerOptions.JsonLd);
     string idxCid = await ipfsRpcApiStore.AddStringAsync(indexJson, pin: true);
 
     prof.Namespaces[key1] = idxCid;
@@ -328,7 +328,7 @@ async Task AddLink(
     if (isSafe)
     {
         var acct = new Account(signingPriv, Helpers.DefaultChainId);
-        string profJson = JsonSerializer.Serialize(prof, Helpers.JsonOpts);
+        string profJson = JsonSerializer.Serialize(prof, Circles.Profiles.Models.JsonSerializerOptions.JsonLd);
         string cid = await ipfsRpcApiStore.AddStringAsync(profJson, pin: true);
         byte[] digest32 = CidConverter.CidToDigest(cid);
 
@@ -385,7 +385,7 @@ async Task SendMsg(
         Text = text,
         Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
     };
-    var msgJson = JsonSerializer.Serialize(msg, Helpers.JsonOpts);
+    var msgJson = JsonSerializer.Serialize(msg, Circles.Profiles.Models.JsonSerializerOptions.JsonLd);
 
     bool fromIsEoaInKeyStore =
         keyStore.Wallets.Any(w => w.Address.Equals(fromAddr, StringComparison.OrdinalIgnoreCase));
@@ -412,7 +412,7 @@ async Task SendMsg(
     if (isSafeSender)
     {
         var ownerAccount = new Account(signingPrivKey, Helpers.DefaultChainId);
-        string profJson = JsonSerializer.Serialize(senderProfile, Helpers.JsonOpts);
+        string profJson = JsonSerializer.Serialize(senderProfile, Circles.Profiles.Models.JsonSerializerOptions.JsonLd);
         string cid = await ipfsRpcApiStore.AddStringAsync(profJson, pin: true);
         byte[] digest32 = CidConverter.CidToDigest(cid);
 
@@ -477,7 +477,7 @@ async Task Inbox(
         BasicMessage? parsed = null;
         try
         {
-            parsed = JsonSerializer.Deserialize<BasicMessage>(raw, Helpers.JsonOpts);
+            parsed = JsonSerializer.Deserialize<BasicMessage>(raw, Circles.Profiles.Models.JsonSerializerOptions.JsonLd);
         }
         catch
         {

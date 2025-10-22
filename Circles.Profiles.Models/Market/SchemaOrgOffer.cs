@@ -26,6 +26,10 @@ public sealed record SchemaOrgOffer
     [JsonPropertyName("inventoryFeed")]
     public string? CirclesInventoryFeed { get; init; }
 
+    /// <summary>Required: a url that points to the checkout flow for this offer. Usually a circles payment link.</summary>
+    [JsonPropertyName("checkout")]
+    public required string Checkout { get; init; }
+
     /// <summary>Offer page.</summary>
     [JsonPropertyName("url")]
     public string? Url { get; init; }

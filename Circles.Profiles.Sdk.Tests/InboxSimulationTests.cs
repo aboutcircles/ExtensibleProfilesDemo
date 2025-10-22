@@ -129,7 +129,7 @@ public class InboxSimulationTests
                 foreach (var link in chunk.Links)
                 {
                     var rawMsg = await ipfs.CatStringAsync(link.Cid);
-                    var chatMsg = JsonSerializer.Deserialize<BasicMessage>(rawMsg, Helpers.JsonOpts);
+                    var chatMsg = JsonSerializer.Deserialize<BasicMessage>(rawMsg, Models.JsonSerializerOptions.JsonLd);
                     if (chatMsg is not null && chatMsg.Text == "hello alice, from bob")
                     {
                         foundMessage = true;

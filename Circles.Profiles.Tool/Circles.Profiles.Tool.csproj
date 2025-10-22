@@ -12,4 +12,11 @@
         <ProjectReference Include="..\Circles.Profiles.Models\Circles.Profiles.Models.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <Content Include="static\**\*.*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+        </Content>
+    </ItemGroup>
+
 </Project>

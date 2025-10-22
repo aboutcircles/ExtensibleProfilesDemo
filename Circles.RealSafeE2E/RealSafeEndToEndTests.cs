@@ -84,7 +84,7 @@ public class RealSafeEndToEndTests
 
         foreach (var a in _actors)
         {
-            string profJson = JsonSerializer.Serialize(a.Profile, Helpers.JsonOpts);
+            string profJson = JsonSerializer.Serialize(a.Profile, Circles.Profiles.Models.JsonSerializerOptions.JsonLd);
             string cid = await ipfs.AddStringAsync(profJson, pin: true);
 
             Console.WriteLine($"   {a.Alias} profile CID {cid}");

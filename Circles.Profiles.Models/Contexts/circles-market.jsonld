@@ -12,9 +12,12 @@
 
       "circles:availabilityFeed": { "@type": "@id" },
       "availabilityFeed": { "@id": "circles:availabilityFeed", "@type": "@id" },
-            
+
       "circles:inventoryFeed":   { "@type": "@id" },
-      "inventoryFeed":    { "@id": "circles:inventoryFeed",    "@type": "@id" }
+      "inventoryFeed":    { "@id": "circles:inventoryFeed",    "@type": "@id" },
+
+      "circles:checkout":   { "@type": "@id" },
+      "checkout":    { "@id": "circles:checkout",    "@type": "@id" }
     }
   ]
 }
