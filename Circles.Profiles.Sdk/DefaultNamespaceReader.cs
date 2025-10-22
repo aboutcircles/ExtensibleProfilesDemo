@@ -69,7 +69,7 @@ public sealed class DefaultNamespaceReader : INamespaceReader
 
     private async Task<bool> Verify(CustomDataLink l, CancellationToken ct)
     {
-        bool seenBefore = NonceRegistry.SeenBefore(l.Nonce);
+        bool seenBefore = NonceRegistrySingleton.Instance.SeenBefore(l.Nonce);
         if (seenBefore)
         {
             return false; // replay → drop
