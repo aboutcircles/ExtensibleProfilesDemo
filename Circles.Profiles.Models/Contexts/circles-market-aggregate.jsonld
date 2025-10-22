@@ -1,0 +1,33 @@
+{
+  "@context": [
+    "https://aboutcircles.com/contexts/circles-common/",
+    {
+      "@version": 1.1,
+      "@protected": true,
+      "@vocab": "https://aboutcircles.com/vocab#",
+
+      "AggregatedCatalog": "circles:AggregatedCatalog",
+      "AggregatedCatalogItem": "circles:AggregatedCatalogItem",
+      "AggregatedCatalogWindow": "circles:AggregatedCatalogWindow",
+
+      "operator": { "@id": "circles:operator", "@type": "ethAddress" },
+      "chainId":  { "@id": "circles:chainId",  "@type": "xsd:integer" },
+
+      "window":   { "@id": "circles:window" },
+
+      "avatarsScanned": { "@id": "circles:avatarsScanned", "@container": "@set", "@type": "ethAddress" },
+      "products":       { "@id": "circles:products",        "@container": "@list" },
+      "errors":         { "@id": "circles:errors" },
+
+      "start": { "@id": "circles:start", "@type": "unixSeconds" },
+      "end":   { "@id": "circles:end",   "@type": "unixSeconds" },
+
+      "seller":      { "@id": "circles:seller",      "@type": "ethAddress" },
+      "productCid":  { "@id": "circles:productCid",  "@type": "cidv0" },
+      "publishedAt": { "@id": "circles:publishedAt", "@type": "unixSeconds" },
+      "linkKeccak":  { "@id": "circles:linkKeccak",  "@type": "hex" },
+
+      "product": { "@id": "circles:product" }
+    }
+  ]
+}

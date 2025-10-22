@@ -1,7 +1,8 @@
 using System.Text.Json;
-using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
 using Circles.Profiles.Safe;
 using Circles.Profiles.Sdk;
+using Circles.Profiles.Sdk.Utils;
 using Nethereum.Web3;
 using Nethereum.Web3.Accounts;
 
@@ -10,7 +11,7 @@ namespace Circles.RealSafeE2E;
 [TestFixture]
 public class RealSafeEndToEndTests
 {
-    private const string Rpc = "https://rpc.aboutcircles.com";
+    private const string Rpc = "http://localhost:8545";
 
     private Account _deployer = null!;
     private Web3 _web3 = null!;
@@ -49,7 +50,7 @@ public class RealSafeEndToEndTests
     [Test]
     public async Task PingPong_MultiRound_EndToEnd()
     {
-        await using var ipfs = new IpfsStore();
+        await using var ipfs = new IpfsRpcApiStore();
         var chainApi = new EthereumChainApi(_web3, 100);
 
         const int rounds = 3;
@@ -84,7 +85,7 @@ public class RealSafeEndToEndTests
         foreach (var a in _actors)
         {
             string profJson = JsonSerializer.Serialize(a.Profile, Helpers.JsonOpts);
-            string cid = await ipfs.AddJsonAsync(profJson, pin: true);
+            string cid = await ipfs.AddStringAsync(profJson, pin: true);
 
             Console.WriteLine($"   {a.Alias} profile CID {cid}");
 

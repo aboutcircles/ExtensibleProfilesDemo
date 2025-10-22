@@ -1,5 +1,7 @@
 using System.Text;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
+using Circles.Profiles.Sdk.Utils;
 
 namespace Circles.Profiles.Sdk.Tests;
 

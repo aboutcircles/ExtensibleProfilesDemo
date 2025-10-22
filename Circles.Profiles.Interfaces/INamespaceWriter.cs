@@ -1,4 +1,5 @@
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
 
 namespace Circles.Profiles.Interfaces;
 

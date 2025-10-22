@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Circles.Profiles.Interfaces;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
+using JsonSerializerOptions = System.Text.Json.JsonSerializerOptions;
 
 namespace Circles.Profiles.Sdk;
 
@@ -66,11 +68,11 @@ public static class Helpers
         NamespaceChunk chunk,
         IIpfsStore ipfs,
         CancellationToken ct = default) =>
-        ipfs.AddJsonAsync(JsonSerializer.Serialize(chunk, JsonOpts), pin: true, ct);
+        ipfs.AddStringAsync(JsonSerializer.Serialize(chunk, JsonOpts), pin: true, ct);
 
     internal static Task<string> SaveIndex(
         NameIndexDoc idx,
         IIpfsStore ipfs,
         CancellationToken ct = default) =>
-        ipfs.AddJsonAsync(JsonSerializer.Serialize(idx, JsonOpts), pin: true, ct);
+        ipfs.AddStringAsync(JsonSerializer.Serialize(idx, JsonOpts), pin: true, ct);
 }

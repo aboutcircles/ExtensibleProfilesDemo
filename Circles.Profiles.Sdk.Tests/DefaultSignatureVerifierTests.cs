@@ -1,5 +1,6 @@
 using System.Numerics;
 using Circles.Profiles.Interfaces;
+using Circles.Profiles.Sdk.Utils;
 using Moq;
 using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Model;

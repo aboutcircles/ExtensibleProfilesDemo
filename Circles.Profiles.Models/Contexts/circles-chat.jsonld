@@ -1,0 +1,20 @@
+{
+  "@context": [
+    "https://aboutcircles.com/contexts/circles-common/",
+    {
+      "@version": 1.1,
+      "@protected": true,
+      "@vocab": "https://aboutcircles.com/vocab#",
+
+      "BasicMessage": "circles:BasicMessage",
+
+      "from": { "@id": "circles:from", "@type": "ethAddress" },
+      "to":   { "@id": "circles:to",   "@type": "ethAddress" },
+
+      "messageType": { "@id": "circles:messageType" },
+
+      "text": { "@id": "circles:text" },
+      "ts":   { "@id": "circles:timestamp", "@type": "unixSeconds" }
+    }
+  ]
+}

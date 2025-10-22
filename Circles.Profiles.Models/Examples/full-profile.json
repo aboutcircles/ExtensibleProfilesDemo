@@ -1,0 +1,152 @@
+{
+  "profileCid": "QmahViuu7esRzbHndc7VbtKFJprmCfycX7PixAoq5mzs9t",
+  "profile": {
+    "@context": "https://aboutcircles.com/contexts/circles-profile/",
+    "@type": "Profile",
+    "previewImageUrl": null,
+    "imageUrl": null,
+    "name": "Charly",
+    "description": "real-eoa-e2e",
+    "namespaces": {
+      "0xaeda53b17e6b53a5014f74cbfe862b9749a90450": "QmX6ZkQughkp4CGJksh88w7579rH332V4hmNJqcpCJX2N4",
+      "0x3936bace923eea1e86dfc328c824423ba461f8a1": "QmaydpqPXJaqH7feNPv1rEqTqXv518RtbW2swJ6daaN2Fs"
+    },
+    "signingKeys": {}
+  },
+  "namespaces": {
+    "0xaeda53b17e6b53a5014f74cbfe862b9749a90450": {
+      "indexCid": "QmX6ZkQughkp4CGJksh88w7579rH332V4hmNJqcpCJX2N4",
+      "index": {
+        "@context": "https://aboutcircles.com/contexts/circles-namespace/",
+        "@type": "NameIndexDoc",
+        "head": "QmNM4tCfUtDhsUDWj7Hgh338xtU37gbmZEi3WdMbvp41M6",
+        "entries": {
+          "msg-r0-CtoA": "QmNM4tCfUtDhsUDWj7Hgh338xtU37gbmZEi3WdMbvp41M6",
+          "msg-r1-CtoA": "QmNM4tCfUtDhsUDWj7Hgh338xtU37gbmZEi3WdMbvp41M6",
+          "msg-r2-CtoA": "QmNM4tCfUtDhsUDWj7Hgh338xtU37gbmZEi3WdMbvp41M6"
+        }
+      },
+      "chunks": [
+        {
+          "cid": "QmNM4tCfUtDhsUDWj7Hgh338xtU37gbmZEi3WdMbvp41M6",
+          "chunk": {
+            "@context": "https://aboutcircles.com/contexts/circles-namespace/",
+            "@type": "NamespaceChunk",
+            "prev": null,
+            "links": [
+              {
+                "@context": "https://aboutcircles.com/contexts/circles-linking/",
+                "@type": "CustomDataLink",
+                "name": "msg-r0-CtoA",
+                "cid": "QmWGoXDyGa8CaoaAaKtTG8x6h7tJ2gkv86mGGn7RNhUFmV",
+                "encrypted": false,
+                "encryptionAlgorithm": null,
+                "encryptionKeyFingerprint": null,
+                "chainId": 100,
+                "signerAddress": "0x4cbFA783f181bb48264170529459FE71DAAA59D6",
+                "signedAt": 1761099689,
+                "nonce": "0xfaf05ab88e2571279cd02757bfbde9b6",
+                "signature": "0xdb7b0c8ccf78f49a1b3e25159ef7c9ca3dafa0c08fe12c1a4ffb38484ce4a2d60541c9951694d4bbb85144a18a99b30ca77bd452f8cd148891fcced4c1143c5c1b"
+              },
+              {
+                "@context": "https://aboutcircles.com/contexts/circles-linking/",
+                "@type": "CustomDataLink",
+                "name": "msg-r1-CtoA",
+                "cid": "QmScvXvtUgQpagwFFhR5LonyqPPSDA6R1SEsENMRkpX5Kk",
+                "encrypted": false,
+                "encryptionAlgorithm": null,
+                "encryptionKeyFingerprint": null,
+                "chainId": 100,
+                "signerAddress": "0x4cbFA783f181bb48264170529459FE71DAAA59D6",
+                "signedAt": 1761099696,
+                "nonce": "0x0e8c004bb47865010d78baadb5afac36",
+                "signature": "0x1d415f4e8754d20882c68ec0e9cd040b86b2038f951daa66dd3cb06710e77a3218c78247072a929b3554be38eb7940c55c4b9b895293354465e59c2c61baaea01b"
+              },
+              {
+                "@context": "https://aboutcircles.com/contexts/circles-linking/",
+                "@type": "CustomDataLink",
+                "name": "msg-r2-CtoA",
+                "cid": "QmdcPo3rrfP8UZHm6c3hqa6urrQhbZRaJCVE8Dj1kR9mGV",
+                "encrypted": false,
+                "encryptionAlgorithm": null,
+                "encryptionKeyFingerprint": null,
+                "chainId": 100,
+                "signerAddress": "0x4cbFA783f181bb48264170529459FE71DAAA59D6",
+                "signedAt": 1761099703,
+                "nonce": "0xef8affd5e31928878b18bc08c2a84d10",
+                "signature": "0x138ffb84579fb5fa2bf290f181230488e4568ed700698194a6f7ca286dabe83a59cf96c7c1fd0935d91869de84cdf242aae9e3727267b1c8df176f83ed626ba51b"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "0x3936bace923eea1e86dfc328c824423ba461f8a1": {
+      "indexCid": "QmaydpqPXJaqH7feNPv1rEqTqXv518RtbW2swJ6daaN2Fs",
+      "index": {
+        "@context": "https://aboutcircles.com/contexts/circles-namespace/",
+        "@type": "NameIndexDoc",
+        "head": "Qmek8wBaanZZfy7djtd5z1LXkhchtGtKsXY6XrsbBaActE",
+        "entries": {
+          "msg-r0-CtoB": "Qmek8wBaanZZfy7djtd5z1LXkhchtGtKsXY6XrsbBaActE",
+          "msg-r1-CtoB": "Qmek8wBaanZZfy7djtd5z1LXkhchtGtKsXY6XrsbBaActE",
+          "msg-r2-CtoB": "Qmek8wBaanZZfy7djtd5z1LXkhchtGtKsXY6XrsbBaActE"
+        }
+      },
+      "chunks": [
+        {
+          "cid": "Qmek8wBaanZZfy7djtd5z1LXkhchtGtKsXY6XrsbBaActE",
+          "chunk": {
+            "@context": "https://aboutcircles.com/contexts/circles-namespace/",
+            "@type": "NamespaceChunk",
+            "prev": null,
+            "links": [
+              {
+                "@context": "https://aboutcircles.com/contexts/circles-linking/",
+                "@type": "CustomDataLink",
+                "name": "msg-r0-CtoB",
+                "cid": "Qmd87qd34bUcJhcTFapPGEtXhmQG4FPUkKBsntmUhiDJhv",
+                "encrypted": false,
+                "encryptionAlgorithm": null,
+                "encryptionKeyFingerprint": null,
+                "chainId": 100,
+                "signerAddress": "0x4cbFA783f181bb48264170529459FE71DAAA59D6",
+                "signedAt": 1761099690,
+                "nonce": "0xd0e746c7285b6fe47e448d8f474f3742",
+                "signature": "0x23091e25dd376120327f79c582ff855ca3ff340f0d603d718e4e2952c046b2006fd929d142c32c1d98e3bce01b84b08cdf44c844487b7e46cbaa60c5c09eb8b91b"
+              },
+              {
+                "@context": "https://aboutcircles.com/contexts/circles-linking/",
+                "@type": "CustomDataLink",
+                "name": "msg-r1-CtoB",
+                "cid": "QmQS89QGSgG2RSHx71dDRvcYStKDDK8HN3AKELUGkNnrFd",
+                "encrypted": false,
+                "encryptionAlgorithm": null,
+                "encryptionKeyFingerprint": null,
+                "chainId": 100,
+                "signerAddress": "0x4cbFA783f181bb48264170529459FE71DAAA59D6",
+                "signedAt": 1761099697,
+                "nonce": "0xb3d261d5fefc9feb58135944121eff5e",
+                "signature": "0x66bde2777e62d221fab6a678e7d148bcf454d7457d6328570f8798b8ebfa86ee25606936a7125e9acda073721eb40538525583f18cd68df49e82092d7d93adcc1b"
+              },
+              {
+                "@context": "https://aboutcircles.com/contexts/circles-linking/",
+                "@type": "CustomDataLink",
+                "name": "msg-r2-CtoB",
+                "cid": "QmRN99jtEC7NaNG4qErbdCBVBvjd1H3rM9VyW7wEBPyL4Y",
+                "encrypted": false,
+                "encryptionAlgorithm": null,
+                "encryptionKeyFingerprint": null,
+                "chainId": 100,
+                "signerAddress": "0x4cbFA783f181bb48264170529459FE71DAAA59D6",
+                "signedAt": 1761099705,
+                "nonce": "0xd1ab01efa1c043e75e10020bf863fa74",
+                "signature": "0x3435348237332d75db465ba5ea288a5dc828473d4a6a14654659f9cfed4a48f719bbb5891d386bb506257186ff8c395504b6f255d03c9cc41dd1be970480fc1f1b"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

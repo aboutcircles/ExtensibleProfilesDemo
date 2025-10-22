@@ -1,3 +1,5 @@
+using Circles.Profiles.Sdk.Utils;
+
 namespace Circles.Profiles.Sdk.Tests;
 
 [TestFixture]

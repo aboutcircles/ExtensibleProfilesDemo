@@ -1,4 +1,5 @@
 using Circles.Profiles.Interfaces;
+using Circles.Profiles.Sdk.Utils;
 using Nethereum.ABI.FunctionEncoding.Attributes;
 using Nethereum.Contracts;
 using Nethereum.Web3;

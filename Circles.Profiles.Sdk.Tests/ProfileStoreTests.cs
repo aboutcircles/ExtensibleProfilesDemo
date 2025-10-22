@@ -1,6 +1,8 @@
 using Circles.Profiles.Interfaces;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
 using Circles.Profiles.Sdk.Tests.Mocks;
+using Circles.Profiles.Sdk.Utils;
 using Moq;
 
 namespace Circles.Profiles.Sdk.Tests;
@@ -15,7 +17,7 @@ public class ProfileStoreTests
     {
         var ipfs = new InMemoryIpfsStore();
         var profile = new Profile { Name = "A", Description = "B" };
-        var cid = await ipfs.AddJsonAsync(System.Text.Json.JsonSerializer.Serialize(profile));
+        var cid = await ipfs.AddStringAsync(System.Text.Json.JsonSerializer.Serialize(profile));
 
         var regMock = NameRegistryMock.WithProfileCid("0xavatar", cid);
         var store = new ProfileStore(ipfs, regMock.Object);

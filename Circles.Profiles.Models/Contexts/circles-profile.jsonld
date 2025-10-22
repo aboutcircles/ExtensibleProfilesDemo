@@ -1,0 +1,21 @@
+{
+  "@context": [
+    "https://aboutcircles.com/contexts/circles-common/",
+    {
+      "@version": 1.1,
+      "@protected": true,
+      "@vocab": "https://aboutcircles.com/vocab#",
+
+      "Profile": "circles:Profile",
+      "SigningKey": "circles:SigningKey",
+      
+      "namespaces": { "@id": "circles:namespaces", "@container": "@index", "@type": "cidv0" },
+      "signingKeys": { "@id": "circles:signingKeys", "@container": "@index" },
+
+      "publicKey": { "@id": "circles:publicKey" },
+      "validFrom": { "@id": "circles:validFrom", "@type": "unixSeconds" },
+      "validTo":   { "@id": "circles:validTo",   "@type": "unixSeconds" },
+      "revokedAt": { "@id": "circles:revokedAt", "@type": "unixSeconds" }
+    }
+  ]
+}

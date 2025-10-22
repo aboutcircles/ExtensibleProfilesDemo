@@ -1,7 +1,9 @@
 using System.Numerics;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
 using Circles.Profiles.Safe;
 using Circles.Profiles.Sdk;
+using Circles.Profiles.Sdk.Utils;
 using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Signer;
 using Nethereum.Web3;

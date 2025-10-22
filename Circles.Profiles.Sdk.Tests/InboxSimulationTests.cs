@@ -1,7 +1,10 @@
 using System.Text.Json;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Chat;
+using Circles.Profiles.Models.Core;
 using Circles.Profiles.Sdk.Tests.Mocks;
 using Nethereum.Signer;
+using JsonSerializerOptions = System.Text.Json.JsonSerializerOptions;
 
 namespace Circles.Profiles.Sdk.Tests;
 
@@ -76,7 +79,7 @@ public class InboxSimulationTests
 
         // Bob sends a message to Alice (the normal use-case)
         var bobToAliceWriter = await NamespaceWriter.CreateAsync(bob, aAddr, ipfs, new EoaLinkSigner());
-        var msgObj = new ChatMessage
+        var msgObj = new BasicMessage
         {
             From = bAddr,
             To = aAddr,
@@ -89,7 +92,7 @@ public class InboxSimulationTests
         await bobToAliceWriter.AddJsonAsync("msg-1", msgJson, bPriv);
 
         // Simulate Bob saving his profile (as would happen in a real app)
-        var regMock = NameRegistryMock.WithProfileCid(bAddr, await ipfs.AddJsonAsync(JsonSerializer.Serialize(bob)));
+        var regMock = NameRegistryMock.WithProfileCid(bAddr, await ipfs.AddStringAsync(JsonSerializer.Serialize(bob)));
         var store = new ProfileStore(ipfs, regMock.Object);
 
         // Re-save Bob's profile, so the IPFS content includes the new message namespace
@@ -126,7 +129,7 @@ public class InboxSimulationTests
                 foreach (var link in chunk.Links)
                 {
                     var rawMsg = await ipfs.CatStringAsync(link.Cid);
-                    var chatMsg = JsonSerializer.Deserialize<ChatMessage>(rawMsg, Helpers.JsonOpts);
+                    var chatMsg = JsonSerializer.Deserialize<BasicMessage>(rawMsg, Helpers.JsonOpts);
                     if (chatMsg is not null && chatMsg.Text == "hello alice, from bob")
                     {
                         foundMessage = true;
