@@ -1,4 +1,5 @@
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
 using Nethereum.Signer;
 
 namespace Circles.Profiles.Sdk.Tests;

@@ -23,11 +23,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.RealSafeE2E", "Circ
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.PayloadSignerApi", "Circles.PayloadSignerApi\Circles.PayloadSignerApi.csproj", "{A5D5D7A1-6B7E-4F7B-8D8C-8C2B7F4D9A10}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UI", "UI", "{2E410937-A614-4FE7-80C6-B721F2BE158D}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{2E410937-A614-4FE7-80C6-B721F2BE158D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profile.UI", "Circles.Profile.UI\Circles.Profile.UI.csproj", "{10839E09-11C5-47BB-A69C-04A2E8E51FD0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Safe", "Circles.Profiles.Safe\Circles.Profiles.Safe.csproj", "{0BADDD7A-3350-49E2-9300-D37999021839}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Tool", "Circles.Profiles.Tool\Circles.Profiles.Tool.csproj", "{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -67,9 +69,14 @@ Global
 		{A5D5D7A1-6B7E-4F7B-8D8C-8C2B7F4D9A10}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A5D5D7A1-6B7E-4F7B-8D8C-8C2B7F4D9A10}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A5D5D7A1-6B7E-4F7B-8D8C-8C2B7F4D9A10}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{10839E09-11C5-47BB-A69C-04A2E8E51FD0} = {2E410937-A614-4FE7-80C6-B721F2BE158D}
 		{0BADDD7A-3350-49E2-9300-D37999021839} = {2E410937-A614-4FE7-80C6-B721F2BE158D}
+		{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A} = {2E410937-A614-4FE7-80C6-B721F2BE158D}
 	EndGlobalSection
 EndGlobal

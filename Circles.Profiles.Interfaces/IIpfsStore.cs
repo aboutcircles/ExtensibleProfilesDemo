@@ -4,7 +4,7 @@
 public interface IIpfsStore
 {
     /* Pins UTF-8 JSON (convenience) */
-    Task<string> AddJsonAsync(string json,
+    Task<string> AddStringAsync(string json,
         bool pin = true,
         CancellationToken ct = default);
 

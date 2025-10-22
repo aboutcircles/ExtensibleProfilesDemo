@@ -2,8 +2,9 @@ using System.Buffers;
 using System.Globalization;
 using System.Text.Json;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
 
-namespace Circles.Profiles.Sdk;
+namespace Circles.Profiles.Sdk.Utils;
 
 /// <summary>
 /// RFC 8785‑compatible canonical JSON *without* the <c>signature</c> field.

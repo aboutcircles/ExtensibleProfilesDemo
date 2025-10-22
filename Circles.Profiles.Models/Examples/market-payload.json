@@ -1,0 +1,32 @@
+{
+  "@context": [
+    "https://schema.org/",
+    "https://aboutcircles.com/contexts/circles-market/"
+  ],
+  "@type": "Product",
+  "name": "test-product-2",
+  "sku": "test-sku",
+  "image": [
+    {
+      "@type": "ImageObject",
+      "contentUrl": "cid://Qm124234234",
+      "url": "https://ipfs.aboutcircles.com/Qm124234234"
+    },
+    {
+      "@type": "ImageObject",
+      "contentUrl": "cid://Qm353490580934",
+      "url": "https://ipfs.aboutcircles.com/Qm353490580934"
+    }
+  ],
+  "offers": [
+    {
+      "@type": "Offer",
+      "price": 100,
+      "priceCurrency": "CRC",
+      "availabilityFeed": "https://example.com/api/availability/test-sku",
+      "inventoryFeed": "https://example.com/api/inventory/test-sku",
+      "checkout": "https://app.metri.xyz/transfer/0xde374ece6fa50e781e81aac78e811b33d16912c7/crc/100"
+    }
+  ],
+  "dateModified": "2025-10-22T04:06:09.5143139Z"
+}

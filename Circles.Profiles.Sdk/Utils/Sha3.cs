@@ -1,6 +1,6 @@
 using Nethereum.Util;
 
-namespace Circles.Profiles.Sdk;
+namespace Circles.Profiles.Sdk.Utils;
 
 /// <summary>Very small façade so call-sites can stay terse.</summary>
 public static class Sha3

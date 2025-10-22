@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Circles.Profiles.Interfaces;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
 using Circles.Profiles.Sdk;
 using Microsoft.AspNetCore.Http.Json;
 
@@ -21,7 +22,7 @@ builder.Services.Configure<JsonOptions>(o =>
 });
 
 // DI: pinning and signing helpers
-builder.Services.AddSingleton<IIpfsStore>(_ => new IpfsStore());
+builder.Services.AddSingleton<IIpfsStore>(_ => new IpfsRpcApiStore());
 builder.Services.AddSingleton<ILinkSigner, EoaLinkSigner>();
 
 // Pluggable validation
@@ -58,7 +59,7 @@ app.MapPost("/sign", async (HttpRequest req, IIpfsStore ipfs, ILinkSigner signer
     string cid;
     try
     {
-        cid = await ipfs.AddJsonAsync(raw, pin: true, req.HttpContext.RequestAborted);
+        cid = await ipfs.AddStringAsync(raw, pin: true, req.HttpContext.RequestAborted);
     }
     catch (Exception ex)
     {

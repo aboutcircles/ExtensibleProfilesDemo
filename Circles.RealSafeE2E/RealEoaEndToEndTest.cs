@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
 using Circles.Profiles.Safe;
 using Circles.Profiles.Sdk;
 using Nethereum.Signer;
@@ -11,11 +12,15 @@ namespace Circles.RealSafeE2E;
 [TestFixture]
 public class RealEoaEndToEndTests
 {
-    private const string Rpc = "https://rpc.aboutcircles.com";
+    private const string Rpc = "http://localhost:8545";
     private const int ChainId = 100; // Gnosis Chain (0x64)
 
     private Account _deployer = null!;
     private Web3 _web3 = null!;
+
+    private string _ipfsRpcApiUrl = null!;
+    private string? _ipfsRpcApiBearer;
+
 
     private record Actor(string Alias, Account Key, string Address, Profile Profile);
 
@@ -29,9 +34,14 @@ public class RealEoaEndToEndTests
 
         var privateKey = Environment.GetEnvironmentVariable("PRIVATE_KEY") ??
                          throw new ArgumentException("The PRIVATE_KEY environment variable is not set");
-        
+
         _deployer = new Account(privateKey, ChainId);
         _web3 = new Web3(_deployer, Rpc);
+
+        _ipfsRpcApiUrl = Environment.GetEnvironmentVariable("IPFS_RPC_URL") ??
+                         throw new ArgumentException("The IPFS_RPC_URL environment variable is not set");
+
+        _ipfsRpcApiBearer = Environment.GetEnvironmentVariable("IPFS_RPC_BEARER");
 
         foreach (string alias in new[] { "Alice", "Bob", "Charly" })
         {
@@ -40,7 +50,7 @@ public class RealEoaEndToEndTests
             var acct = new Account(eoaPriv, ChainId);
 
             // fund so they can call updateMetadataDigest
-            await SafeHelper.FundAsync(_web3, _deployer, acct.Address, 0.001);
+            await SafeHelper.FundAsync(_web3, _deployer, acct.Address, 0.0005);
 
             _actors.Add(new Actor(
                 alias,
@@ -54,7 +64,7 @@ public class RealEoaEndToEndTests
     [Test]
     public async Task PingPong_MultiRound_EndToEnd_EOA()
     {
-        await using var ipfs = new IpfsStore();
+        await using var ipfs = new IpfsRpcApiStore(_ipfsRpcApiUrl, _ipfsRpcApiBearer);
 
         const int rounds = 3;
         Console.WriteLine($"[EOA E2E] Writing {rounds} rounds, all sender→recipient pairs");

@@ -1,3 +1,4 @@
+using Circles.Profiles.Sdk.Utils;
 using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Signer;
 

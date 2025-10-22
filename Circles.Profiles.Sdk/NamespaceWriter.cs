@@ -2,6 +2,8 @@ using System.Text;
 using System.Text.Json;
 using Circles.Profiles.Interfaces;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
+using Circles.Profiles.Sdk.Utils;
 using Nethereum.Hex.HexConvertors.Extensions;
 
 namespace Circles.Profiles.Sdk;
@@ -63,7 +65,7 @@ public sealed class NamespaceWriter : INamespaceWriter
         string pk,
         CancellationToken ct = default)
     {
-        string cid = await _ipfs.AddJsonAsync(json, pin: true, ct);
+        string cid = await _ipfs.AddStringAsync(json, pin: true, ct);
         return await AttachExistingCidAsync(name, cid, pk, ct);
     }
 
@@ -133,7 +135,7 @@ public sealed class NamespaceWriter : INamespaceWriter
         foreach (var (n, j) in itemsArray)
         {
             ct.ThrowIfCancellationRequested();
-            string cid = await _ipfs.AddJsonAsync(j, pin: true, ct);
+            string cid = await _ipfs.AddStringAsync(j, pin: true, ct);
 
             vec.Add(new CustomDataLink
             {
@@ -233,13 +235,13 @@ public sealed class NamespaceWriter : INamespaceWriter
 
         _index.Head = headCid;
 
-        string indexJson = JsonSerializer.Serialize(_index, Helpers.JsonOpts);
+        string indexJson = JsonSerializer.Serialize(_index, Models.JsonSerializerOptions.JsonLd);
         string indexCid = await _ipfs.CalcCidAsync(
             Encoding.UTF8.GetBytes(indexJson), ct);
 
         _ownerProfile.Namespaces[_nsKeyLower] = indexCid;
 
-        await _ipfs.AddJsonAsync(indexJson, pin: true, ct);
+        await _ipfs.AddStringAsync(indexJson, pin: true, ct);
     }
 
     /// <summary>

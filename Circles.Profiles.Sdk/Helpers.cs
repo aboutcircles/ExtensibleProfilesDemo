@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Circles.Profiles.Interfaces;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
+using JsonSerializerOptions = System.Text.Json.JsonSerializerOptions;
 
 namespace Circles.Profiles.Sdk;
 
@@ -12,12 +14,6 @@ public static class Helpers
 {
     public const int ChunkMaxLinks = 100;
     public const long DefaultChainId = 100; // Gnosis Chain (0x64)
-
-    public static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
-    };
 
     /// <summary>
     /// Loads an index document from IPFS.<br/>
@@ -33,7 +29,7 @@ public static class Helpers
         }
 
         await using var s = await ipfs.CatAsync(cid, ct);
-        return await JsonSerializer.DeserializeAsync<NameIndexDoc>(s, JsonOpts, ct)
+        return await JsonSerializer.DeserializeAsync<NameIndexDoc>(s, Models.JsonSerializerOptions.JsonLd, ct)
                ?? new NameIndexDoc();
     }
 
@@ -49,7 +45,7 @@ public static class Helpers
 
         try
         {
-            var chunk = await JsonSerializer.DeserializeAsync<NamespaceChunk>(stream, JsonOpts, ct);
+            var chunk = await JsonSerializer.DeserializeAsync<NamespaceChunk>(stream, Models.JsonSerializerOptions.JsonLd, ct);
             if (chunk is null)
                 throw new JsonException("Deserialised chunk is null");
 
@@ -66,11 +62,11 @@ public static class Helpers
         NamespaceChunk chunk,
         IIpfsStore ipfs,
         CancellationToken ct = default) =>
-        ipfs.AddJsonAsync(JsonSerializer.Serialize(chunk, JsonOpts), pin: true, ct);
+        ipfs.AddStringAsync(JsonSerializer.Serialize(chunk, Models.JsonSerializerOptions.JsonLd), pin: true, ct);
 
     internal static Task<string> SaveIndex(
         NameIndexDoc idx,
         IIpfsStore ipfs,
         CancellationToken ct = default) =>
-        ipfs.AddJsonAsync(JsonSerializer.Serialize(idx, JsonOpts), pin: true, ct);
+        ipfs.AddStringAsync(JsonSerializer.Serialize(idx, Models.JsonSerializerOptions.JsonLd), pin: true, ct);
 }

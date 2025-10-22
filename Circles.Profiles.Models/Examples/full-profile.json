@@ -1,0 +1,49 @@
+{
+  "ProfileCid": "QmWAYK6xx6LY8tDoKNnVGP1cxSUDfqLmLnziJytYpRrFvn",
+  "Profile": {
+    "@context": "https://aboutcircles.com/contexts/circles-profile/",
+    "@type": "Profile",
+    "name": "new-profile",
+    "description": "",
+    "namespaces": {
+      "0x31d5d15c558fbfbbbe604c9c11eb42c9afbf5140": "QmPWGik34bZzTieoj4mhT2mjpCw935NgY9XyDxe2xkRaiD"
+    },
+    "signingKeys": {}
+  },
+  "Namespaces": {
+    "0x31d5d15c558fbfbbbe604c9c11eb42c9afbf5140": {
+      "IndexCid": "QmPWGik34bZzTieoj4mhT2mjpCw935NgY9XyDxe2xkRaiD",
+      "Index": {
+        "@context": "https://aboutcircles.com/contexts/circles-namespace/",
+        "@type": "NameIndexDoc",
+        "head": "QmdzvjPKkFxrLMmcsoS8fwNqJmCBBb9SnzNHR9iSnQxwYs",
+        "entries": {
+          "product/test-sku": "QmdzvjPKkFxrLMmcsoS8fwNqJmCBBb9SnzNHR9iSnQxwYs"
+        }
+      },
+      "Chunks": [
+        {
+          "Cid": "QmdzvjPKkFxrLMmcsoS8fwNqJmCBBb9SnzNHR9iSnQxwYs",
+          "Chunk": {
+            "@context": "https://aboutcircles.com/contexts/circles-namespace/",
+            "@type": "NamespaceChunk",
+            "links": [
+              {
+                "@context": "https://aboutcircles.com/contexts/circles-linking/",
+                "@type": "CustomDataLink",
+                "name": "product/test-sku",
+                "cid": "Qmb1wnFN4cbS7uxZjb7x2y8b3Ba7s3zA2DBA9ENLm6G747",
+                "encrypted": false,
+                "chainId": 100,
+                "signerAddress": "0x31d5D15C558Fbfbbbe604c9c11EB42C9afBf5140",
+                "signedAt": 1761105970,
+                "nonce": "0x641d309f912629ccaa5aa26adc568957",
+                "signature": "0x1cbbefff8ab50141d9bea6451c9232344af75fadb226bd4dda4f6523e323329a0b1ee271c42d54c0eb392f69031d5c20e97a3375202fb05e77cc06b561311b981c"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

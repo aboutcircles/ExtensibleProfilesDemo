@@ -2,17 +2,21 @@
 using System.Text.Json;
 using Circles.Profile.UI.Services;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Chat;
+using Circles.Profiles.Models.Core;
 using Circles.Profiles.Safe;
 using Circles.Profiles.Sdk;
+using Circles.Profiles.Sdk.Utils;
 using Nethereum.Web3;
 using Nethereum.Web3.Accounts;
+using JsonSerializerOptions = System.Text.Json.JsonSerializerOptions;
 
 async Task AddNamespace(
     ProfileStore profileStore1,
     string addr2,
     LocalProfileStore localProfileStore2,
     string key1,
-    IpfsStore ipfsStore)
+    IpfsRpcApiStore ipfsRpcApiStore)
 {
     if (profileStore1 == null) throw new ArgumentNullException(nameof(profileStore1));
     if (localProfileStore2 == null) throw new ArgumentNullException(nameof(localProfileStore2));
@@ -30,8 +34,8 @@ async Task AddNamespace(
 
     // Create a proper empty index document and pin it so we have a valid CID.
     var emptyIndex = new NameIndexDoc(); // head="", entries={}
-    string indexJson = JsonSerializer.Serialize(emptyIndex, Helpers.JsonOpts);
-    string idxCid = await ipfsStore.AddJsonAsync(indexJson, pin: true);
+    string indexJson = JsonSerializer.Serialize(emptyIndex, Circles.Profiles.Models.JsonSerializerOptions.JsonLd);
+    string idxCid = await ipfsRpcApiStore.AddStringAsync(indexJson, pin: true);
 
     prof.Namespaces[key1] = idxCid;
     localProfileStore2.Save(addr2, prof);
@@ -58,7 +62,7 @@ string priv = Environment.GetEnvironmentVariable("PRIVATE_KEY")
 
 var deployer = new Account(priv, 100);
 var web3 = new Web3(deployer, rpc);
-var ipfs = new IpfsStore(); // same SDK impl
+var ipfs = new IpfsRpcApiStore(); // same SDK impl
 var registry = new NameRegistry(deployer.PrivateKey, rpc);
 var storeSdk = new ProfileStore(ipfs, registry);
 
@@ -287,7 +291,7 @@ async Task AddLink(
     string s2,
     LocalProfileStore cache3,
     string ns1,
-    IpfsStore ipfsStore,
+    IpfsRpcApiStore ipfsRpcApiStore,
     KeyStore keyStore2,
     string name1,
     string json1)
@@ -300,7 +304,7 @@ async Task AddLink(
             new EthereumChainApi(web3, Helpers.DefaultChainId))
         : new EoaLinkSigner();
 
-    var writer = await NamespaceWriter.CreateAsync(prof, ns1.ToLowerInvariant(), ipfsStore, signer);
+    var writer = await NamespaceWriter.CreateAsync(prof, ns1.ToLowerInvariant(), ipfsRpcApiStore, signer);
 
     string signingPriv;
     if (isSafe)
@@ -324,8 +328,8 @@ async Task AddLink(
     if (isSafe)
     {
         var acct = new Account(signingPriv, Helpers.DefaultChainId);
-        string profJson = JsonSerializer.Serialize(prof, Helpers.JsonOpts);
-        string cid = await ipfsStore.AddJsonAsync(profJson, pin: true);
+        string profJson = JsonSerializer.Serialize(prof, Circles.Profiles.Models.JsonSerializerOptions.JsonLd);
+        string cid = await ipfsRpcApiStore.AddStringAsync(profJson, pin: true);
         byte[] digest32 = CidConverter.CidToDigest(cid);
 
         await SafeHelper.ExecTransactionAsync(
@@ -338,7 +342,7 @@ async Task AddLink(
     else
     {
         var eoaRegistry = new NameRegistry(signingPriv, rpc);
-        var eoaStore = new ProfileStore(ipfsStore, eoaRegistry);
+        var eoaStore = new ProfileStore(ipfsRpcApiStore, eoaRegistry);
 
         await eoaStore.SaveAsync(prof, signingPriv);
     }
@@ -351,7 +355,7 @@ async Task SendMsg(
     string fromAddr,
     LocalProfileStore localProfiles,
     string toAddr,
-    IpfsStore ipfsStore,
+    IpfsRpcApiStore ipfsRpcApiStore,
     KeyStore keyStore,
     SafeStore safeStore,
     Web3 web3,
@@ -370,10 +374,10 @@ async Task SendMsg(
             new EthereumChainApi(web3, Helpers.DefaultChainId))
         : new EoaLinkSigner();
 
-    var writer = await NamespaceWriter.CreateAsync(senderProfile, recipientKey, ipfsStore, signer);
+    var writer = await NamespaceWriter.CreateAsync(senderProfile, recipientKey, ipfsRpcApiStore, signer);
 
     var msgName = $"msg-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
-    var msg = new ChatMessage
+    var msg = new BasicMessage
     {
         From = fromAddr,
         To = toAddr,
@@ -381,7 +385,7 @@ async Task SendMsg(
         Text = text,
         Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
     };
-    var msgJson = JsonSerializer.Serialize(msg, Helpers.JsonOpts);
+    var msgJson = JsonSerializer.Serialize(msg, Circles.Profiles.Models.JsonSerializerOptions.JsonLd);
 
     bool fromIsEoaInKeyStore =
         keyStore.Wallets.Any(w => w.Address.Equals(fromAddr, StringComparison.OrdinalIgnoreCase));
@@ -408,8 +412,8 @@ async Task SendMsg(
     if (isSafeSender)
     {
         var ownerAccount = new Account(signingPrivKey, Helpers.DefaultChainId);
-        string profJson = JsonSerializer.Serialize(senderProfile, Helpers.JsonOpts);
-        string cid = await ipfsStore.AddJsonAsync(profJson, pin: true);
+        string profJson = JsonSerializer.Serialize(senderProfile, Circles.Profiles.Models.JsonSerializerOptions.JsonLd);
+        string cid = await ipfsRpcApiStore.AddStringAsync(profJson, pin: true);
         byte[] digest32 = CidConverter.CidToDigest(cid);
 
         await SafeHelper.ExecTransactionAsync(
@@ -422,7 +426,7 @@ async Task SendMsg(
     else
     {
         var eoaRegistry = new NameRegistry(signingPrivKey, rpc);
-        var eoaStore = new ProfileStore(ipfsStore, eoaRegistry);
+        var eoaStore = new ProfileStore(ipfsRpcApiStore, eoaRegistry);
 
         await eoaStore.SaveAsync(senderProfile, signingPrivKey);
     }
@@ -434,7 +438,7 @@ async Task Inbox(
     ProfileStore storeSdk,
     string recipientAddr,
     string senderAddr,
-    IpfsStore ipfsStore,
+    IpfsRpcApiStore ipfsRpcApiStore,
     Web3 web3,
     int take = 20)
 {
@@ -457,23 +461,23 @@ async Task Inbox(
         return;
     }
 
-    var idx = await Helpers.LoadIndex(idxCid, ipfsStore);
+    var idx = await Helpers.LoadIndex(idxCid, ipfsRpcApiStore);
 
     var chainProbe = new EthereumChainApi(web3, Helpers.DefaultChainId);
     var code = await chainProbe.GetCodeAsync(senderAddr);
     Console.WriteLine($"[diag] signer={senderAddr} codeLen={code.Length} head={idx.Head}");
 
     var verifier = new DefaultSignatureVerifier(new EthereumChainApi(web3, Helpers.DefaultChainId));
-    var reader = new DefaultNamespaceReader(idx.Head, ipfsStore, verifier);
+    var reader = new DefaultNamespaceReader(idx.Head, ipfsRpcApiStore, verifier);
 
-    var items = new List<(CustomDataLink Link, ChatMessage? Msg, string Raw)>();
+    var items = new List<(CustomDataLink Link, BasicMessage? Msg, string Raw)>();
     await foreach (var l in reader.StreamAsync())
     {
-        string raw = await ipfsStore.CatStringAsync(l.Cid);
-        ChatMessage? parsed = null;
+        string raw = await ipfsRpcApiStore.CatStringAsync(l.Cid);
+        BasicMessage? parsed = null;
         try
         {
-            parsed = JsonSerializer.Deserialize<ChatMessage>(raw, Helpers.JsonOpts);
+            parsed = JsonSerializer.Deserialize<BasicMessage>(raw, Circles.Profiles.Models.JsonSerializerOptions.JsonLd);
         }
         catch
         {

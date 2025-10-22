@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Circles.Profiles.Interfaces;
+using Circles.Profiles.Sdk.Utils;
 
 namespace Circles.Profiles.Sdk.Tests.Mocks;
 
@@ -23,7 +24,7 @@ internal sealed class InMemoryIpfsStore : IIpfsStore
 
     /* ─────────────────────────── write API ───────────────────────── */
 
-    public Task<string> AddJsonAsync(string json, bool pin = true,
+    public Task<string> AddStringAsync(string json, bool pin = true,
         CancellationToken ct = default) =>
         AddBytesAsync(Encoding.UTF8.GetBytes(json), pin, ct);
 

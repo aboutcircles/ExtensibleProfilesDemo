@@ -1,4 +1,5 @@
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
 using Circles.Profiles.Sdk.Tests.Mocks;
 
 namespace Circles.Profiles.Sdk.Tests;

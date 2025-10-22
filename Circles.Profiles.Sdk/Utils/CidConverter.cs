@@ -1,6 +1,6 @@
 using Ipfs;
 
-namespace Circles.Profiles.Sdk;
+namespace Circles.Profiles.Sdk.Utils;
 
 public static class CidConverter
 {

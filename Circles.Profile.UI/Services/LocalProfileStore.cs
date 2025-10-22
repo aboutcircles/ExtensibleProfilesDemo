@@ -9,7 +9,7 @@ namespace Circles.Profile.UI.Services;
 internal sealed class LocalProfileStore
 {
     private readonly string _dir;
-    private readonly Dictionary<string, Profiles.Models.Profile> _cache =
+    private readonly Dictionary<string, Profiles.Models.Core.Profile> _cache =
         new(StringComparer.OrdinalIgnoreCase);
 
     public LocalProfileStore(string? dir = null)
@@ -20,18 +20,18 @@ internal sealed class LocalProfileStore
         foreach (var f in Directory.EnumerateFiles(_dir, "*.json"))
             try
             {
-                var p = JsonSerializer.Deserialize<Profiles.Models.Profile>(File.ReadAllText(f));
+                var p = JsonSerializer.Deserialize<Profiles.Models.Core.Profile>(File.ReadAllText(f));
                 if (p != null) _cache[Path.GetFileNameWithoutExtension(f)] = p;
             }
             catch { /* ignore */ }
     }
 
-    public Profiles.Models.Profile GetOrCreate(string addr)
+    public Profiles.Models.Core.Profile GetOrCreate(string addr)
         => _cache.TryGetValue(addr, out var p)
             ? p
-            : _cache[addr] = new Profiles.Models.Profile { Name = addr, Description = "" };
+            : _cache[addr] = new Profiles.Models.Core.Profile { Name = addr, Description = "" };
 
-    public void Save(string addr, Profiles.Models.Profile p)
+    public void Save(string addr, Profiles.Models.Core.Profile p)
     {
         _cache[addr] = p;
         File.WriteAllText(Path.Combine(_dir, $"{addr}.json"),

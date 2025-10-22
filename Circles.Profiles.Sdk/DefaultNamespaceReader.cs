@@ -1,5 +1,7 @@
 using Circles.Profiles.Interfaces;
 using Circles.Profiles.Models;
+using Circles.Profiles.Models.Core;
+using Circles.Profiles.Sdk.Utils;
 using Nethereum.Hex.HexConvertors.Extensions;
 
 namespace Circles.Profiles.Sdk;
@@ -67,7 +69,7 @@ public sealed class DefaultNamespaceReader : INamespaceReader
 
     private async Task<bool> Verify(CustomDataLink l, CancellationToken ct)
     {
-        bool seenBefore = NonceRegistry.SeenBefore(l.Nonce);
+        bool seenBefore = NonceRegistrySingleton.Instance.SeenBefore(l.Nonce);
         if (seenBefore)
         {
             return false; // replay → drop

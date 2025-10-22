@@ -1,7 +1,8 @@
+using Circles.Profiles.Models.Core;
 using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Signer;
 
-namespace Circles.Profiles.Sdk;
+namespace Circles.Profiles.Sdk.Utils;
 
 public static class SigningKeyUtils
 {
@@ -22,7 +23,7 @@ public static class SigningKeyUtils
     /// True ↔ <paramref name="fingerprint"/> is found in <paramref name="profile"/> 
     /// and covers <paramref name="unixTime"/>.
     /// </summary>
-    public static bool IsFingerprintValid(string fingerprint, Models.Profile profile, long unixTime)
+    public static bool IsFingerprintValid(string fingerprint, Profile profile, long unixTime)
     {
         if (!profile.SigningKeys.TryGetValue(fingerprint, out var meta))
             return false;
