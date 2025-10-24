@@ -73,22 +73,22 @@ public class DefaultSignatureVerifierTests
         chain.Setup(c => c.Id)
             .Returns(new BigInteger(100));
 
+        // bytes32 path: simulate revert → forces fallback to "bytes"
         chain.Setup(c => c.CallIsValidSignatureAsync(
                 contract,
                 It.Is<string>(a => a.Contains("bytes32")),
-                It.IsAny<byte[]>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SignatureCallResult(false, "0x1626ba7e".HexToByteArray()));
+                It.IsAny<byte[]>(),
+                It.IsAny<byte[]>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SignatureCallResult(true, Array.Empty<byte>()));
 
-        chain.Setup(c => c.CallIsValidSignatureAsync(
-                contract,
-                It.Is<string>(a => a.Contains("bytes32")),
-                It.IsAny<byte[]>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SignatureCallResult(true, Array.Empty<byte>())); // revert
-
+        // bytes path: return MAGIC so verification succeeds
         chain.Setup(c => c.CallIsValidSignatureAsync(
                 contract,
                 It.Is<string>(a => a.Contains("\"bytes\"") && !a.Contains("bytes32")),
-                It.IsAny<byte[]>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
+                It.IsAny<byte[]>(),
+                It.IsAny<byte[]>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SignatureCallResult(false, "0x20c13b0b".HexToByteArray()));
 
         var verifier = new DefaultSignatureVerifier(chain.Object);
@@ -100,15 +100,10 @@ public class DefaultSignatureVerifierTests
         chain.Verify(c => c.CallIsValidSignatureAsync(
                 contract,
                 It.Is<string>(s => s.Contains("\"bytes\"") && !s.Contains("bytes32")),
-                It.IsAny<byte[]>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()),
+                It.IsAny<byte[]>(),
+                It.IsAny<byte[]>(),
+                It.IsAny<CancellationToken>()),
             Times.Once);
-
-        // bytes32 path optional (0‑or‑1)
-        // chain.Verify(c => c.CallIsValidSignatureAsync(
-        //         contract,
-        //         It.Is<string>(s => s.Contains("bytes32")),
-        //         It.IsAny<byte[]>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()),
-        //     Times.AtMostOnce());
     }
 
     [Test]

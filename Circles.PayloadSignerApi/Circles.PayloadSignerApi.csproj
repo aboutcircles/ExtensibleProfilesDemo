@@ -9,4 +9,7 @@
     <ProjectReference Include="../Circles.Profiles.Models/Circles.Profiles.Models.csproj" />
     <ProjectReference Include="../Circles.Profiles.Sdk/Circles.Profiles.Sdk.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" Version="8.0.3" />
+  </ItemGroup>
 </Project>

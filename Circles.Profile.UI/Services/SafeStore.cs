@@ -53,7 +53,7 @@ internal sealed class SafeStore
         /* 1) fund owner so the Safe can pay future gas (idempotent) */
         try
         {
-            await SafeHelper.FundAsync(_web3, _deployer, owner.Address, 0.001, ct);
+            await SafeHelper.FundAsync(_web3, _deployer, owner.Address, 0.001m, ct);
         }
         catch
         {

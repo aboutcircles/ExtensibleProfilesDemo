@@ -43,6 +43,23 @@
             ]
           }
         }
+      ],
+      "Links": [
+        {
+          "Link": {
+            "@context": "https://aboutcircles.com/contexts/circles-linking/",
+            "@type": "CustomDataLink",
+            "name": "product/test-sku",
+            "cid": "Qmb1wnFN4cbS7uxZjb7x2y8b3Ba7s3zA2DBA9ENLm6G747",
+            "encrypted": false,
+            "chainId": 100,
+            "signerAddress": "0x31d5D15C558Fbfbbbe604c9c11EB42C9afBf5140",
+            "signedAt": 1761105970,
+            "nonce": "0x641d309f912629ccaa5aa26adc568957",
+            "signature": "0x1cbbefff8ab50141d9bea6451c9232344af75fadb226bd4dda4f6523e323329a0b1ee271c42d54c0eb392f69031d5c20e97a3375202fb05e77cc06b561311b981c"
+          },
+          "RawJson": "{\u0022@context\u0022:[\u0022https://schema.org/\u0022,\u0022https://aboutcircles.com/contexts/circles-market/\u0022],\u0022@type\u0022:\u0022Product\u0022,\u0022name\u0022:\u0022test-product-2\u0022,\u0022sku\u0022:\u0022test-sku\u0022,\u0022image\u0022:[{\u0022@type\u0022:\u0022ImageObject\u0022,\u0022contentUrl\u0022:\u0022cid://Qm124234234\u0022,\u0022url\u0022:\u0022https://ipfs.aboutcircles.com/Qm124234234\u0022},{\u0022@type\u0022:\u0022ImageObject\u0022,\u0022contentUrl\u0022:\u0022cid://Qm353490580934\u0022,\u0022url\u0022:\u0022https://ipfs.aboutcircles.com/Qm353490580934\u0022}],\u0022offers\u0022:[{\u0022@type\u0022:\u0022Offer\u0022,\u0022price\u0022:2,\u0022priceCurrency\u0022:\u0022CRC\u0022,\u0022availabilityFeed\u0022:\u0022https://example.com/api/availability/test-sku\u0022,\u0022inventoryFeed\u0022:\u0022https://example.com/api/inventory/test-sku\u0022,\u0022checkout\u0022:\u0022https://app.metri.xyz/transfer/0xde374ece6fa50e781e81aac78e811b33d16912c7/crc/100\u0022}],\u0022dateModified\u0022:\u00222025-10-22T04:06:09.5143139Z\u0022}"
+        }
       ]
     }
   }

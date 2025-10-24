@@ -19,4 +19,10 @@
         </Content>
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="catalog\merch.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>

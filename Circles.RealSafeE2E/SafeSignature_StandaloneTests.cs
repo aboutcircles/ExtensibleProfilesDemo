@@ -41,7 +41,7 @@ public sealed class SafeSignature_StandaloneTests
 
         var ownerKey = EthECKey.GenerateKey();
         _owner = new Account(ownerKey.GetPrivateKey(), ChainId);
-        await SafeHelper.FundAsync(_web3, _deployer, _owner.Address, 0.001);
+        await SafeHelper.FundAsync(_web3, _deployer, _owner.Address, 0.001m);
 
         _safe = await SafeHelper.DeploySafe141OnGnosisAsync(_web3, [_deployer.Address, _owner.Address],
             threshold: 1);

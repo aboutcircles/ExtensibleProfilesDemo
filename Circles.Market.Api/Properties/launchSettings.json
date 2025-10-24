@@ -1,0 +1,31 @@
+﻿{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5084",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "RPC": "http://localhost:8545",
+        "PRIVATE_KEY":"0xa9b427a71f5f619ac7db52d384468d06a4dd77ab0ce0a33f7b1e603a27528738",
+        "IPFS_RPC_URL":"https://rpc.filebase.io/api/v0/",
+        "IPFS_RPC_BEARER":"OTQ5OEY0Nzc1NEExMkMyODc5NzA6RUN4WlJyWkF2d1ZIZm9kbU1OTzZnNU5pdkdOU0p6aDg1MnRHTkh0cTpjaXJjbGVzLXByb2ZpbGVz"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7002;http://localhost:5084",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "RPC": "http://localhost:8545",
+        "PRIVATE_KEY":"0xa9b427a71f5f619ac7db52d384468d06a4dd77ab0ce0a33f7b1e603a27528738",
+        "IPFS_RPC_URL":"https://rpc.filebase.io/api/v0/",
+        "IPFS_RPC_BEARER":"OTQ5OEY0Nzc1NEExMkMyODc5NzA6RUN4WlJyWkF2d1ZIZm9kbU1OTzZnNU5pdkdOU0p6aDg1MnRHTkh0cTpjaXJjbGVzLXByb2ZpbGVz"
+      }
+    }
+  }
+}

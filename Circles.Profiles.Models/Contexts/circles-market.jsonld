@@ -17,7 +17,10 @@
       "inventoryFeed":    { "@id": "circles:inventoryFeed",    "@type": "@id" },
 
       "circles:checkout":   { "@type": "@id" },
-      "checkout":    { "@id": "circles:checkout",    "@type": "@id" }
+      "checkout":    { "@id": "circles:checkout",    "@type": "@id" },
+
+      "circles:signalBuyIntent":   { "@type": "@id" },
+      "signalBuyIntent":    { "@id": "circles:signalBuyIntent",    "@type": "@id" }
     }
   ]
 }

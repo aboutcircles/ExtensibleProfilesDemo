@@ -24,6 +24,8 @@
     <ItemGroup>
       <ProjectReference Include="..\Circles.Profiles.Interfaces\Circles.Profiles.Interfaces.csproj" />
       <ProjectReference Include="..\Circles.Profiles.Sdk\Circles.Profiles.Sdk.csproj" />
+      <ProjectReference Include="..\Circles.Market.Api\Circles.Market.Api.csproj" />
+      <ProjectReference Include="..\Circles.Profiles.Models\Circles.Profiles.Models.csproj" />
     </ItemGroup>
 
 </Project>

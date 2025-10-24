@@ -41,7 +41,13 @@ public sealed class NameRegistry : INameRegistry
 {
     private readonly Web3 _web3;
     private readonly Contract _contract;
-    private readonly string _signer;
+    private readonly string? _signer;
+
+    public NameRegistry(string rpcUrl)
+    {
+        _web3 = new Web3(rpcUrl);
+        _contract = _web3.Eth.GetContract(NameRegistryConsts.ContractAbi, NameRegistryConsts.ContractAddress);
+    }
 
     public NameRegistry(string signerPrivKey, string rpcUrl)
     {
@@ -76,6 +82,11 @@ public sealed class NameRegistry : INameRegistry
         CancellationToken ct = default,
         bool strict = true)
     {
+        if (_signer == null)
+        {
+            throw new Exception("No signer. Can only perform read operations.");
+        }
+        
         if (strict && !avatar.Equals(_signer, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException(
                 $"avatar ({avatar}) must equal tx‑signer ({_signer}). " +

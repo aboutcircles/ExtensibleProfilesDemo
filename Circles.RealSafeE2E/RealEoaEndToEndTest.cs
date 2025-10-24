@@ -50,7 +50,7 @@ public class RealEoaEndToEndTests
             var acct = new Account(eoaPriv, ChainId);
 
             // fund so they can call updateMetadataDigest
-            await SafeHelper.FundAsync(_web3, _deployer, acct.Address, 0.0005);
+            await SafeHelper.FundAsync(_web3, _deployer, acct.Address, 0.0005m);
 
             _actors.Add(new Actor(
                 alias,

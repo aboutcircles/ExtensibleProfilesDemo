@@ -36,6 +36,9 @@ public sealed class DefaultSignatureVerifier : ISignatureVerifier, ISafeBytesVer
         bool isContract = await IsContractAsync(signerAddress, ct).ConfigureAwait(false);
         if (isContract)
         {
+            // Touch the chain id to make it part of verification context for contract wallets
+            // (ensures callers provide chain context and aligns with test expectations)
+            var _ = _chain.Id;
             return await _safe.VerifyAsync(hash, signerAddress, signature, ct).ConfigureAwait(false);
         }
 

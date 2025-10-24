@@ -59,7 +59,6 @@ public class InboxSimulationTests
             .Select(l => l.Name)
             .ToArray();
 
-        collected.Sort((x, y) => y.SignedAt.CompareTo(x.SignedAt));
 
         Assert.That(names, Is.EqualTo(new[] { "msg-2", "msg-1" }).AsCollection);
     }
