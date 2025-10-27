@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Circles.Profiles.Models\Circles.Profiles.Models.csproj" />
+        <ProjectReference Include="..\Circles.Profiles.Interfaces\Circles.Profiles.Interfaces.csproj" />
+        <ProjectReference Include="..\Circles.Profiles.Sdk\Circles.Profiles.Sdk.csproj" />
+    </ItemGroup>
+
+</Project>

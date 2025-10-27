@@ -35,19 +35,37 @@
     <section class="panel">
       <div class="row">
         <div>
-          <label for="cid">Profile CID</label><br />
-          <input id="cid" type="text" placeholder="Qm..." />
+          <label for="op">Namespace address</label><br />
+          <input id="op" type="text" placeholder="0x..." />
         </div>
         <div>
-          <label for="ns">Dapp Namespace</label><br />
-          <input id="ns" type="text" placeholder="e.g. market, alice, bob..." />
+          <label for="avatars">Avatars (space/comma separated)</label><br />
+          <input id="avatars" type="text" placeholder="0xAlice 0xBob" />
         </div>
         <div>
-          <label for="gw">IPFS Gateway</label><br />
-          <input id="gw" type="text" value="https://ipfs.io" />
+          <label for="chainId">Chain ID</label><br />
+          <input id="chainId" type="number" value="100" min="1" />
         </div>
-        <div style="align-self: end; padding-bottom: 2px;">
+        <div>
+          <label for="start">Window start (local)</label><br />
+          <input id="start" type="datetime-local" />
+        </div>
+        <div>
+          <label for="end">Window end (local)</label><br />
+          <input id="end" type="datetime-local" />
+        </div>
+        <div>
+          <label for="pageSize">Page size</label><br />
+          <input id="pageSize" type="number" value="20" min="1" max="100" />
+        </div>
+        <div>
+          <label for="apiBase">API base</label><br />
+          <input id="apiBase" type="text" placeholder="http://localhost:5084" value="http://localhost:5084" />
+        </div>
+        <div style="align-self: end; padding-bottom: 2px; display:flex; gap:8px;">
           <button id="loadBtn">Load</button>
+          <button id="prevBtn" disabled>Prev</button>
+          <button id="nextBtn" disabled>Next</button>
         </div>
       </div>
       <div id="status" class="muted" style="margin-top: 8px;"></div>
@@ -58,8 +76,9 @@
       <div class="row" style="justify-content: space-between;">
         <div>
           <strong>Products</strong> <span id="count" class="muted"></span>
+          <span id="avatarsScanned" class="muted small"></span>
         </div>
-        <div class="muted small">One offer per product (first offer shown)</div>
+        <div class="muted small"><span id="pageInfo"></span> One offer per product (first offer shown)</div>
       </div>
       <div id="results" class="grid" style="margin-top: 12px;"></div>
     </section>
@@ -67,10 +86,11 @@
     <details class="panel">
       <summary class="small">Help</summary>
       <div class="small" style="margin-top:8px;">
-        • Enter a Profile CID and a Dapp Namespace. The page will fetch the profile from the IPFS gateway,<br />
-        resolve the namespace index, and traverse the namespace chunks to find logical names like <span class="mono">product/&lt;sku&gt;</span>.<br />
-        • For each product, its JSON is fetched and the first offer (if any) is displayed.<br />
-        • Gateways commonly used: ipfs.io, cloudflare-ipfs.com, dweb.link
+        • This viewer uses the Market API endpoint <span class="mono">/api/operator/{op}/catalog</span> to aggregate products across avatars.<br />
+        • Required query: at least one <span class="mono">avatars=0x…</span>. Optional: <span class="mono">chainId</span>, <span class="mono">start</span>, <span class="mono">end</span>, <span class="mono">pageSize</span>.<br />
+        • Pagination: the server returns a <span class="mono">X-Next-Cursor</span> header and Link rel="next". Use Next/Prev to navigate pages.<br />
+        • API base can be left empty to call the same origin, or set to your server, e.g. <span class="mono">http://localhost:5084</span>.<br />
+        • Raw JSON links open the product CID on a public IPFS gateway.
       </div>
     </details>
   </main>
@@ -81,48 +101,71 @@
 <script>
 (function(){
   const $ = sel => document.querySelector(sel);
-  const cidInput = $('#cid');
-  const nsInput = $('#ns');
-  const gwInput = $('#gw');
+  const opInput = $('#op');
+  const avatarsInput = $('#avatars');
+  const chainIdInput = $('#chainId');
+  const startInput = $('#start');
+  const endInput = $('#end');
+  const pageSizeInput = $('#pageSize');
+  const apiBaseInput = $('#apiBase');
+
   const statusEl = $('#status');
   const errorEl = $('#error');
   const resultsEl = $('#results');
   const countEl = $('#count');
+  const avatarsScannedEl = $('#avatarsScanned');
+  const pageInfoEl = $('#pageInfo');
+
   const loadBtn = $('#loadBtn');
+  const prevBtn = $('#prevBtn');
+  const nextBtn = $('#nextBtn');
+
+  const state = { cursor: null, nextCursor: null, prevCursors: [] };
 
   function setStatus(msg) { statusEl.textContent = msg || ''; }
   function setError(msg) { errorEl.textContent = msg || ''; }
 
-  function gwUrl(path) {
-    let gw = gwInput.value.trim().replace(/\/$/, '');
-    if (!gw.startsWith('http')) gw = 'https://' + gw;
-    return gw + path;
+  function parseAvatars(s) { return (s || '').split(/[\s,]+/).map(a => a.trim()).filter(Boolean); }
+
+  function toUnixSeconds(dt) {
+    if (!dt) return null;
+    const ms = Date.parse(dt);
+    if (Number.isNaN(ms)) return null;
+    return Math.floor(ms / 1000);
   }
 
-  async function getJson(cid) {
-    const url = gwUrl('/ipfs/' + encodeURIComponent(cid));
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!res.ok) throw new Error('Failed to fetch ' + url + ' — ' + res.status + ' ' + res.statusText);
-    return res.json();
-  }
+  function buildUrl() {
+    const baseRaw = apiBaseInput.value.trim();
+    let base = baseRaw ? baseRaw.replace(/\/$/, '') : '';
+    const op = (opInput.value || '').trim();
 
-  function ensureArray(v) { return Array.isArray(v) ? v : (v == null ? [] : [v]); }
+    const q = new URLSearchParams();
+    const avatars = parseAvatars(avatarsInput.value);
+    for (const a of avatars) q.append('avatars', a);
 
-  // Small concurrency-limited mapper
-  async function mapLimit(items, limit, mapper) {
-    const results = new Array(items.length);
-    let nextIndex = 0;
-    async function worker() {
-      while (true) {
-        const i = nextIndex++;
-        if (i >= items.length) return;
-        try { results[i] = await mapper(items[i], i); }
-        catch (e) { results[i] = { __error: e }; }
-      }
+    const chainId = parseInt(chainIdInput.value, 10);
+    if (!Number.isNaN(chainId)) q.set('chainId', String(chainId));
+
+    const startSec = toUnixSeconds(startInput.value);
+    const endSec = toUnixSeconds(endInput.value);
+    if (startSec != null) q.set('start', String(startSec));
+    if (endSec != null) q.set('end', String(endSec));
+
+    const pageSize = parseInt(pageSizeInput.value, 10);
+    if (!Number.isNaN(pageSize)) q.set('pageSize', String(pageSize));
+
+    if (state.cursor) q.set('cursor', state.cursor);
+
+    const path = `/api/operator/${encodeURIComponent(op)}/catalog`;
+
+    // If opened from non-HTTP(S) origins (e.g., file://), avoid relative URLs that become file:///...
+    const isHttpOrigin = location.protocol === 'http:' || location.protocol === 'https:';
+    if (!isHttpOrigin && !base) {
+      base = 'http://localhost:5084';
     }
-    const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
-    await Promise.all(workers);
-    return results;
+
+    const url = (base ? base + path : path) + '?' + q.toString();
+    return url;
   }
 
   function pickImageUrl(product) {
@@ -132,64 +175,83 @@
       if (!it) continue;
       if (typeof it === 'string') return it;
       if (typeof it?.url === 'string') return it.url;
-      if (typeof it?.Url === 'string') return it.Url; // in case of C#-like JSON
+      if (typeof it?.Url === 'string') return it.Url;
       if (typeof it?.object?.contentUrl === 'string') return it.object.contentUrl;
       if (typeof it?.Object?.ContentUrl === 'string') return it.Object.ContentUrl;
     }
     return null;
   }
 
-  function render(products) {
+  function shortAddr(a) {
+    if (!a) return '';
+    return a.slice(0, 6) + '…' + a.slice(-4);
+  }
+
+  function renderPage(body) {
+    const items = Array.isArray(body?.products) ? body.products : [];
+
     resultsEl.innerHTML = '';
-    countEl.textContent = products.length ? `(${products.length})` : '';
-    for (const p of products) {
+    countEl.textContent = items.length ? `(${items.length})` : '';
+
+    const scanned = Array.isArray(body?.avatarsScanned) ? body.avatarsScanned : [];
+    avatarsScannedEl.textContent = scanned.length ? `from ${scanned.length} avatar(s)` : '';
+
+    for (const p of items) {
+      const product = p.product || {};
+      const offer = Array.isArray(product?.offers) ? (product.offers[0] || null) : (product?.offers || null);
+
       const card = document.createElement('div');
       card.className = 'card';
 
-      const imgUrl = pickImageUrl(p.product) || p.product?.imageUrl || p.product?.ImageUrl || null;
+      const imgUrl = pickImageUrl(product) || product?.imageUrl || product?.ImageUrl || null;
       const thumb = document.createElement(imgUrl ? 'img' : 'div');
       thumb.className = 'thumb';
       if (imgUrl) {
         thumb.src = imgUrl;
         thumb.loading = 'lazy';
-        thumb.alt = p.product?.name || p.product?.Name || 'product-image';
+        thumb.alt = product?.name || product?.Name || 'product-image';
       } else {
         thumb.textContent = 'No image';
       }
 
-      const body = document.createElement('div');
-      body.className = 'card-body';
+      const bodyEl = document.createElement('div');
+      bodyEl.className = 'card-body';
 
-      const name = p.product?.name || p.product?.Name || '(no name)';
+      const name = product?.name || product?.Name || '(no name)';
       const h = document.createElement('div');
       h.textContent = name;
       h.style.fontWeight = '600';
-      body.appendChild(h);
+      bodyEl.appendChild(h);
 
-      if (p.product?.description || p.product?.Description) {
+      if (product?.description || product?.Description) {
         const d = document.createElement('div');
         d.className = 'muted small';
-        d.textContent = p.product.description || p.product.Description;
-        body.appendChild(d);
+        d.textContent = product.description || product.Description;
+        bodyEl.appendChild(d);
       }
 
-      const offer = p.offer;
       if (offer) {
-        const price = offer.price || offer.Price;
+        const price = offer.price ?? offer.Price;
         const curr = offer.priceCurrency || offer.PriceCurrency;
         const avail = offer.availability || offer.Availability;
         const availText = typeof avail === 'string' ? avail : (avail?.name || avail?.Name || '');
         const o = document.createElement('div');
         o.className = 'small';
         o.textContent = `Offer: ${price ?? '?'} ${curr ?? ''} ${availText ? '(' + availText + ')' : ''}`;
-        body.appendChild(o);
+        bodyEl.appendChild(o);
       }
+
+      const meta = document.createElement('div');
+      meta.className = 'muted small';
+      const ts = typeof p.publishedAt === 'number' ? new Date(p.publishedAt * 1000) : null;
+      const tsText = ts ? ts.toISOString() : '';
+      meta.textContent = `${shortAddr(p.seller || '')}${tsText ? ' · ' + tsText : ''}`;
+      bodyEl.appendChild(meta);
 
       const links = document.createElement('div');
       links.className = 'row';
       links.style.justifyContent = 'space-between';
 
-      // Left side: Buy button (if offer.checkout present)
       const left = document.createElement('div');
       left.className = 'inline';
       if (offer) {
@@ -207,13 +269,12 @@
       }
       links.appendChild(left);
 
-      // Right side: auxiliary links
       const right = document.createElement('div');
       right.className = 'inline';
 
-      if (p.product?.url || p.product?.Url) {
+      if (product?.url || product?.Url) {
         const a = document.createElement('a');
-        a.href = p.product.url || p.product.Url;
+        a.href = product.url || product.Url;
         a.target = '_blank';
         a.rel = 'noopener';
         a.className = 'small inline';
@@ -222,115 +283,137 @@
         const sep = document.createElement('span'); sep.textContent = ' \u00A0·\u00A0 '; right.appendChild(sep);
       }
 
-      const raw = document.createElement('a');
-      raw.href = gwUrl('/ipfs/' + encodeURIComponent(p.cid));
-      raw.target = '_blank';
-      raw.rel = 'noopener';
-      raw.className = 'small inline';
-      raw.textContent = 'Raw JSON';
-      right.appendChild(raw);
+      if (p.productCid) {
+        const raw = document.createElement('a');
+        raw.href = 'https://ipfs.io/ipfs/' + encodeURIComponent(p.productCid);
+        raw.target = '_blank';
+        raw.rel = 'noopener';
+        raw.className = 'small inline';
+        raw.textContent = 'Raw JSON';
+        right.appendChild(raw);
+      }
 
       links.appendChild(right);
 
-      body.appendChild(links);
+      bodyEl.appendChild(links);
       card.appendChild(thumb);
-      card.appendChild(body);
+      card.appendChild(bodyEl);
       resultsEl.appendChild(card);
+    }
+
+    if (Array.isArray(body?.errors) && body.errors.length) {
+      setError(body.errors.map(e => JSON.stringify(e)).join('\n'));
     }
   }
 
-  async function load() {
+  async function fetchAndRender() {
     setError('');
     setStatus('Loading...');
     resultsEl.innerHTML = '';
     countEl.textContent = '';
+    avatarsScannedEl.textContent = '';
+    pageInfoEl.textContent = '';
+    nextBtn.disabled = true;
 
-    const profileCid = cidInput.value.trim();
-    const ns = nsInput.value.trim().toLowerCase();
-    if (!profileCid || !ns) { setError('Please enter both Profile CID and Namespace.'); setStatus(''); return; }
+    const avatars = parseAvatars(avatarsInput.value);
+    if (!avatars.length) { setError('Please enter at least one avatar'); setStatus(''); return; }
+    const op = opInput.value.trim();
+    if (!op) { setError('Please enter namespace address'); setStatus(''); return; }
 
+    const url = buildUrl();
     try {
-      // 1) Load profile
-      const profile = await getJson(profileCid);
-      const namespaces = profile?.namespaces || profile?.Namespaces;
-      if (!namespaces || typeof namespaces !== 'object') throw new Error('Profile has no namespaces table.');
-      const indexCid = namespaces[ns];
-      if (!indexCid) throw new Error(`Namespace not found in profile: ${ns}`);
-
-      // 2) Load NameIndexDoc
-      const indexDoc = await getJson(indexCid);
-      const head = indexDoc?.head || indexDoc?.Head;
-      if (!head) { setStatus('No entries for this namespace.'); render([]); return; }
-
-      // 3) Traverse chunks from newest to oldest; keep newest per logical name
-      const latest = new Map(); // name -> { link, chunkOrder, linkOrder }
-      let cur = head;
-      let chunkNumber = 0;
-      while (cur) {
-        const chunk = await getJson(cur);
-        const links = chunk?.links || chunk?.Links || [];
-        // Iterate newest-to-oldest within a chunk: assume append order
-        for (let i = links.length - 1; i >= 0; i--) {
-          const l = links[i] || {};
-          const name = l.name || l.Name || '';
-          const cid = l.cid || l.Cid || '';
-          if (!name || !cid) continue;
-          if (!name.toLowerCase().startsWith('product/')) continue;
-          if (!latest.has(name)) {
-            latest.set(name, { link: l, cid, name, chunkNumber, linkIndex: i });
-          }
-        }
-        const prev = chunk?.prev || chunk?.Prev;
-        if (!prev) break;
-        cur = prev;
-        chunkNumber++;
+      const res = await fetch(url, { headers: { 'Accept': 'application/ld+json' } });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Request failed: ${res.status} ${res.statusText}${text ? ' — ' + text : ''}`);
       }
-
-      // 4) Fetch each product JSON and pick first offer — in parallel (with a safe concurrency limit)
-      const latestArr = Array.from(latest.values());
-      const concurrency = Math.min(8, Math.max(2, navigator.hardwareConcurrency || 4));
-      const mapped = await mapLimit(latestArr, concurrency, async (entry) => {
-        const { name, cid } = entry;
-        try {
-          const product = await getJson(cid);
-          const offers = product?.offers || product?.Offers || [];
-          const offer = Array.isArray(offers) ? (offers[0] || null) : (offers || null);
-          return { name, cid, product, offer };
-        } catch (e) {
-          console.warn('Failed to load product', name, cid, e);
-          return null;
-        }
-      });
-      const items = mapped.filter(Boolean);
-
-      // 5) Stable sort by product name
-      items.sort((a, b) => {
-        const an = (a.product?.name || a.product?.Name || a.name || '').toLowerCase();
-        const bn = (b.product?.name || b.product?.Name || b.name || '').toLowerCase();
-        return an.localeCompare(bn);
-      });
-
-      render(items);
-      setStatus(`Loaded ${items.length} product(s).`);
+      state.nextCursor = res.headers.get('X-Next-Cursor');
+      nextBtn.disabled = !state.nextCursor;
+      const body = await res.json();
+      renderPage(body);
+      const pageNum = state.prevCursors.length + 1;
+      pageInfoEl.textContent = `(page ${pageNum}${state.nextCursor ? '' : ' — last'})`;
+      setStatus(`Loaded ${Array.isArray(body?.products) ? body.products.length : 0} item(s).`);
     } catch (err) {
       console.error(err);
       setError(String(err?.message || err));
       setStatus('');
     }
+    prevBtn.disabled = state.prevCursors.length === 0;
   }
 
-  loadBtn.addEventListener('click', () => { loadBtn.disabled = true; load().finally(() => loadBtn.disabled = false); });
+  function updateUrlQuery() {
+    const q = new URLSearchParams();
+    const op = opInput.value.trim();
+    if (op) q.set('op', op);
+    const avs = parseAvatars(avatarsInput.value);
+    for (const a of avs) q.append('avatars', a);
+    const chainId = chainIdInput.value.trim();
+    if (chainId) q.set('chainId', chainId);
+    if (startInput.value) q.set('start', String(toUnixSeconds(startInput.value)));
+    if (endInput.value) q.set('end', String(toUnixSeconds(endInput.value)));
+    const size = pageSizeInput.value.trim();
+    if (size) q.set('pageSize', size);
+    const api = apiBaseInput.value.trim();
+    if (api) q.set('api', api);
+    if (state.cursor) q.set('cursor', state.cursor);
+    const newUrl = location.pathname + '?' + q.toString();
+    history.replaceState(null, '', newUrl);
+  }
 
-  // Allow deep-linking via URL params ?cid=...&ns=...&gw=...
+  async function onLoadClick() {
+    state.prevCursors = [];
+    state.cursor = null;
+    updateUrlQuery();
+    prevBtn.disabled = true;
+    await fetchAndRender();
+  }
+
+  async function onNext() {
+    if (!state.nextCursor) return;
+    state.prevCursors.push(state.cursor);
+    state.cursor = state.nextCursor;
+    updateUrlQuery();
+    await fetchAndRender();
+  }
+
+  async function onPrev() {
+    if (!state.prevCursors.length) return;
+    state.cursor = state.prevCursors.pop() || null;
+    updateUrlQuery();
+    await fetchAndRender();
+  }
+
+  loadBtn.addEventListener('click', () => { loadBtn.disabled = true; onLoadClick().finally(() => loadBtn.disabled = false); });
+  nextBtn.addEventListener('click', () => { nextBtn.disabled = true; onNext().finally(() => nextBtn.disabled = false); });
+  prevBtn.addEventListener('click', () => { prevBtn.disabled = true; onPrev().finally(() => prevBtn.disabled = false); });
+
   const params = new URLSearchParams(location.search);
-  const urlCid = params.get('cid');
-  const urlNs = params.get('ns') || params.get('namespace');
-  const urlGw = params.get('gw') || params.get('gateway');
-  if (urlCid) cidInput.value = urlCid;
-  if (urlNs) nsInput.value = urlNs;
-  if (urlGw) gwInput.value = urlGw;
+  const urlOp = params.get('op');
+  const urlAvatars = params.getAll('avatars');
+  const urlChain = params.get('chainId');
+  const urlStart = params.get('start');
+  const urlEnd = params.get('end');
+  const urlSize = params.get('pageSize') || params.get('limit');
+  const urlApi = params.get('api') || params.get('apiBase');
+  const urlCursor = params.get('cursor');
 
-  if (urlCid && urlNs) {
+  if (urlOp) opInput.value = urlOp;
+  if (urlAvatars && urlAvatars.length) avatarsInput.value = urlAvatars.join(' ');
+  if (urlChain) chainIdInput.value = urlChain;
+  if (urlStart) {
+    const s = new Date(parseInt(urlStart, 10) * 1000);
+    if (!isNaN(s)) startInput.value = s.toISOString().slice(0, 16);
+  }
+  if (urlEnd) {
+    const e = new Date(parseInt(urlEnd, 10) * 1000);
+    if (!isNaN(e)) endInput.value = e.toISOString().slice(0, 16);
+  }
+  if (urlSize) pageSizeInput.value = urlSize;
+  if (urlApi) apiBaseInput.value = urlApi;
+  if (urlCursor) state.cursor = urlCursor;
+
+  if (opInput.value && avatarsInput.value) {
     setTimeout(() => loadBtn.click(), 50);
   }
 })();

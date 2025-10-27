@@ -75,41 +75,28 @@ public sealed class DefaultNamespaceReader : INamespaceReader
             return false; // replay → drop
         }
 
-        // Compute canonical payload bytes once for both paths.
+        // Compute canonical payload bytes once for both paths
         byte[] payloadBytes = CanonicalJson.CanonicaliseWithoutSignature(l);
         byte[] payloadHash = Sha3.Keccak256Bytes(payloadBytes);
+        byte[] signature = l.Signature.HexToByteArray();
 
-        // Primary path (works for EOAs and many contracts):
-        bool ok = await _verifier.VerifyAsync(
-            payloadHash,
-            l.SignerAddress,
-            l.Signature.HexToByteArray(),
-            ct);
-
-        if (ok)
+        // Primary path: works for EOAs and many contracts
+        bool primaryOk = await _verifier.VerifyAsync(payloadHash, l.SignerAddress, signature, ct);
+        if (primaryOk)
         {
             return true;
         }
 
-        // Secondary path (Safe messages):
-        // Prefer a verifier that explicitly supports the "bytes" variant.
-        if (_verifier is ISafeBytesVerifier safe)
+        // Secondary path for Safe messages: prefer a verifier that supports the "bytes" variant
+        bool hasSafeVerifier = _verifier is ISafeBytesVerifier;
+        if (hasSafeVerifier)
         {
-            return await safe.Verify1271WithBytesAsync(
-                payloadBytes,
-                l.SignerAddress,
-                l.Signature.HexToByteArray(),
-                ct);
-        }
-
-        // Back-compat: legacy DefaultSignatureVerifier also has this helper.
-        if (_verifier is DefaultSignatureVerifier def)
-        {
-            return await def.Verify1271WithBytesAsync(
-                payloadBytes,
-                l.SignerAddress,
-                l.Signature.HexToByteArray(),
-                ct);
+            var safe = (ISafeBytesVerifier)_verifier;
+            bool bytesOk = await safe.Verify1271WithBytesAsync(payloadBytes, l.SignerAddress, signature, ct);
+            if (bytesOk)
+            {
+                return true;
+            }
         }
 
         return false;

@@ -281,7 +281,7 @@ async Task EditName(ProfileStore storeSdk1, string s1, LocalProfileStore cache2,
         var eoaRegistry = new NameRegistry(ownerKey.PrivateKey, rpc);
         var eoaStore = new ProfileStore(ipfs, eoaRegistry);
 
-        await eoaStore.SaveAsync(prof, ownerKey.PrivateKey);
+        await eoaStore.SaveAsync(prof, new EoaSigner(new Nethereum.Signer.EthECKey(ownerKey.PrivateKey)));
         Console.WriteLine("✔ on-chain updated");
     }
 }
@@ -300,9 +300,12 @@ async Task AddLink(
 
     var isSafe = safes.Safes.Any(s => s.Address.Equals(s2, StringComparison.OrdinalIgnoreCase));
     var signer = isSafe
-        ? (Circles.Profiles.Interfaces.ILinkSigner)new SafeLinkSigner(s2,
-            new EthereumChainApi(web3, Helpers.DefaultChainId))
-        : new EoaLinkSigner();
+        ? (Circles.Profiles.Interfaces.ISigner)new SafeSigner(s2,
+            new Nethereum.Signer.EthECKey(keyStore2.Wallets.First(w => w.Address.Equals(
+                safes.Safes.First(ss => ss.Address.Equals(s2, StringComparison.OrdinalIgnoreCase)).Owner,
+                StringComparison.OrdinalIgnoreCase)).PrivateKey))
+        : new EoaSigner(new Nethereum.Signer.EthECKey(
+            keyStore2.Wallets.First(w => w.Address.Equals(s2, StringComparison.OrdinalIgnoreCase)).PrivateKey));
 
     var writer = await NamespaceWriter.CreateAsync(prof, ns1.ToLowerInvariant(), ipfsRpcApiStore, signer);
 
@@ -323,7 +326,7 @@ async Task AddLink(
         signingPriv = owner.PrivateKey;
     }
 
-    await writer.AddJsonAsync(name1, json1, signingPriv);
+    await writer.AddJsonAsync(name1, json1);
 
     if (isSafe)
     {
@@ -344,7 +347,7 @@ async Task AddLink(
         var eoaRegistry = new NameRegistry(signingPriv, rpc);
         var eoaStore = new ProfileStore(ipfsRpcApiStore, eoaRegistry);
 
-        await eoaStore.SaveAsync(prof, signingPriv);
+        await eoaStore.SaveAsync(prof, new EoaSigner(new Nethereum.Signer.EthECKey(signingPriv)));
     }
 
     Console.WriteLine("✔ link pinned & profile republished");
@@ -369,12 +372,6 @@ async Task SendMsg(
     var recipientKey = toAddr.ToLowerInvariant();
 
     bool isSafeSender = safeStore.Safes.Any(s => s.Address.Equals(fromAddr, StringComparison.OrdinalIgnoreCase));
-    var signer = isSafeSender
-        ? (Circles.Profiles.Interfaces.ILinkSigner)new SafeLinkSigner(fromAddr,
-            new EthereumChainApi(web3, Helpers.DefaultChainId))
-        : new EoaLinkSigner();
-
-    var writer = await NamespaceWriter.CreateAsync(senderProfile, recipientKey, ipfsRpcApiStore, signer);
 
     var msgName = $"msg-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
     var msg = new BasicMessage
@@ -407,7 +404,13 @@ async Task SendMsg(
             .PrivateKey;
     }
 
-    var link = await writer.AddJsonAsync(msgName, msgJson, signingPrivKey);
+    Circles.Profiles.Interfaces.ISigner signer = isSafeSender
+        ? new SafeSigner(fromAddr, new Nethereum.Signer.EthECKey(signingPrivKey))
+        : new EoaSigner(new Nethereum.Signer.EthECKey(signingPrivKey));
+
+    var writer = await NamespaceWriter.CreateAsync(senderProfile, recipientKey, ipfsRpcApiStore, signer);
+
+    var link = await writer.AddJsonAsync(msgName, msgJson);
 
     if (isSafeSender)
     {
@@ -428,7 +431,7 @@ async Task SendMsg(
         var eoaRegistry = new NameRegistry(signingPrivKey, rpc);
         var eoaStore = new ProfileStore(ipfsRpcApiStore, eoaRegistry);
 
-        await eoaStore.SaveAsync(senderProfile, signingPrivKey);
+        await eoaStore.SaveAsync(senderProfile, signer);
     }
 
     Console.WriteLine($"✔ sent {msgName} → {toAddr}  (CID {link.Cid})");

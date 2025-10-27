@@ -17,6 +17,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documents", "Documents", "{
 		paid-dms.md = paid-dms.md
 		product-catalog.md = product-catalog.md
 		SPEC-INDEX.md = SPEC-INDEX.md
+		circles-survival-guide-2.md = circles-survival-guide-2.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.RealSafeE2E", "Circles.RealSafeE2E\Circles.RealSafeE2E.csproj", "{5E09C14D-6E1B-4976-970A-5A463DA5C4B8}"
@@ -30,6 +31,14 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Safe", "Circles.Profiles.Safe\Circles.Profiles.Safe.csproj", "{0BADDD7A-3350-49E2-9300-D37999021839}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Tool", "Circles.Profiles.Tool\Circles.Profiles.Tool.csproj", "{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Market", "Market", "{1AA40F08-5937-483C-A575-133399170FF3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Market.Api", "Circles.Market.Api\Circles.Market.Api.csproj", "{1CCC174B-0B5E-4E03-B96E-C3D1A0C2E995}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Aggregation", "Circles.Profiles.Aggregation\Circles.Profiles.Aggregation.csproj", "{328C3C65-FC81-4BFF-90A4-8C57170EEA30}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Market", "Circles.Profiles.Market\Circles.Profiles.Market.csproj", "{10AC9CB1-4F09-4918-A792-11A866F1FA3B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -73,10 +82,23 @@ Global
 		{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1CCC174B-0B5E-4E03-B96E-C3D1A0C2E995}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CCC174B-0B5E-4E03-B96E-C3D1A0C2E995}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CCC174B-0B5E-4E03-B96E-C3D1A0C2E995}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CCC174B-0B5E-4E03-B96E-C3D1A0C2E995}.Release|Any CPU.Build.0 = Release|Any CPU
+		{328C3C65-FC81-4BFF-90A4-8C57170EEA30}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{328C3C65-FC81-4BFF-90A4-8C57170EEA30}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{328C3C65-FC81-4BFF-90A4-8C57170EEA30}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{328C3C65-FC81-4BFF-90A4-8C57170EEA30}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10AC9CB1-4F09-4918-A792-11A866F1FA3B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10AC9CB1-4F09-4918-A792-11A866F1FA3B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10AC9CB1-4F09-4918-A792-11A866F1FA3B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10AC9CB1-4F09-4918-A792-11A866F1FA3B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{10839E09-11C5-47BB-A69C-04A2E8E51FD0} = {2E410937-A614-4FE7-80C6-B721F2BE158D}
 		{0BADDD7A-3350-49E2-9300-D37999021839} = {2E410937-A614-4FE7-80C6-B721F2BE158D}
 		{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A} = {2E410937-A614-4FE7-80C6-B721F2BE158D}
+		{1CCC174B-0B5E-4E03-B96E-C3D1A0C2E995} = {1AA40F08-5937-483C-A575-133399170FF3}
 	EndGlobalSection
 EndGlobal

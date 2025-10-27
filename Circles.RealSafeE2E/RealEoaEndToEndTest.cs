@@ -50,7 +50,7 @@ public class RealEoaEndToEndTests
             var acct = new Account(eoaPriv, ChainId);
 
             // fund so they can call updateMetadataDigest
-            await SafeHelper.FundAsync(_web3, _deployer, acct.Address, 0.0005);
+            await SafeHelper.FundAsync(_web3, _deployer, acct.Address, 0.0005m);
 
             _actors.Add(new Actor(
                 alias,
@@ -76,7 +76,7 @@ public class RealEoaEndToEndTests
             {
                 foreach (var recipient in _actors.Where(a => !ReferenceEquals(a, sender)))
                 {
-                    var signer = new EoaLinkSigner();
+                    var signer = new EoaSigner(new EthECKey(sender.Key.PrivateKey));
                     var writer = await NamespaceWriter.CreateAsync(
                         sender.Profile, recipient.Address, ipfs, signer);
 
@@ -85,7 +85,7 @@ public class RealEoaEndToEndTests
                         new { txt = $"round {r} – hi from {sender.Alias} to {recipient.Alias}" });
 
                     var link = await writer.AddJsonAsync(
-                        logicalName, json, sender.Key.PrivateKey);
+                        logicalName, json);
 
                     Console.WriteLine($"[round {r}] {sender.Alias} → {recipient.Alias}  {logicalName}  CID={link.Cid}");
                 }
@@ -100,7 +100,7 @@ public class RealEoaEndToEndTests
             var registry = new NameRegistry(a.Key.PrivateKey, Rpc);
             var store = new ProfileStore(ipfs, registry);
 
-            var (_, cid) = await store.SaveAsync(a.Profile, a.Key.PrivateKey);
+            var (_, cid) = await store.SaveAsync(a.Profile, new EoaSigner(new EthECKey(a.Key.PrivateKey)));
 
             Console.WriteLine($"   {a.Alias} profile CID {cid}");
         }

@@ -26,6 +26,7 @@
       "productCid":  { "@id": "circles:productCid",  "@type": "cidv0" },
       "publishedAt": { "@id": "circles:publishedAt", "@type": "unixSeconds" },
       "linkKeccak":  { "@id": "circles:linkKeccak",  "@type": "hex" },
+      "indexInChunk": { "@id": "circles:indexInChunk", "@type": "xsd:integer" },
 
       "product": { "@id": "circles:product" }
     }

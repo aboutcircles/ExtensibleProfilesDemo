@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json;
 using Circles.Profiles.Interfaces;
-using Circles.Profiles.Models;
 using Circles.Profiles.Models.Core;
 using Circles.Profiles.Sdk.Utils;
 using Nethereum.Hex.HexConvertors.Extensions;
@@ -12,15 +11,15 @@ namespace Circles.Profiles.Sdk;
 /// Writes to one <em>(ownerAvatar, namespaceKey)</em> log.
 /// If the same <paramref name="logicalName"/> is written again
 /// the newer link <b>replaces</b> the older entry <i>inside the head chunk</i>.
-/// Across chunk rotations the profile‑level index ensures random‑access always
+/// Across chunk rotations the profile-level index ensures random-access always
 /// resolves to the most recent occurrence while older links stay in history.
 /// </summary>
 public sealed class NamespaceWriter : INamespaceWriter
 {
     private readonly Profile _ownerProfile;
-    private readonly string _nsKeyLower; // recipient‑addr lower‑cased
+    private readonly string _nsKeyLower; // recipient-addr lower-cased
     private readonly IIpfsStore _ipfs;
-    private readonly ILinkSigner _signer;
+    private readonly ISigner _signer;
 
     private NameIndexDoc _index = new(); // hydrated in CreateAsync
     private NamespaceChunk _head = new(); // idem
@@ -28,22 +27,22 @@ public sealed class NamespaceWriter : INamespaceWriter
     private NamespaceWriter(Profile ownerProfile,
         string namespaceKey,
         IIpfsStore ipfs,
-        ILinkSigner signer)
+        ISigner signer)
     {
-        _ownerProfile = ownerProfile;
-        _nsKeyLower = namespaceKey.ToLowerInvariant();
-        _ipfs = ipfs;
-        _signer = signer;
+        _ownerProfile = ownerProfile ?? throw new ArgumentNullException(nameof(ownerProfile));
+        _nsKeyLower = (namespaceKey ?? throw new ArgumentNullException(nameof(namespaceKey))).ToLowerInvariant();
+        _ipfs = ipfs ?? throw new ArgumentNullException(nameof(ipfs));
+        _signer = signer ?? throw new ArgumentNullException(nameof(signer));
     }
 
     /// <summary>
-    /// Asynchronously loads the existing index/chunk state and returns a ready‑to‑use writer.
+    /// Asynchronously loads the existing index/chunk state and returns a ready-to-use writer.
     /// </summary>
     public static async Task<NamespaceWriter> CreateAsync(
         Profile ownerProfile,
         string namespaceKey,
         IIpfsStore ipfs,
-        ILinkSigner signer,
+        ISigner signer,
         CancellationToken ct = default)
     {
         var w = new NamespaceWriter(ownerProfile, namespaceKey, ipfs, signer);
@@ -60,19 +59,18 @@ public sealed class NamespaceWriter : INamespaceWriter
 
     /* ───────────── single helpers ────────────────────────────────────── */
 
-    public async Task<CustomDataLink> AddJsonAsync(string name,
+    public async Task<CustomDataLink> AddJsonAsync(
+        string name,
         string json,
-        string pk,
         CancellationToken ct = default)
     {
         string cid = await _ipfs.AddStringAsync(json, pin: true, ct);
-        return await AttachExistingCidAsync(name, cid, pk, ct);
+        return await AttachExistingCidAsync(name, cid, ct);
     }
 
     public async Task<CustomDataLink> AttachExistingCidAsync(
         string name,
         string cid,
-        string pk,
         CancellationToken ct = default)
     {
         bool nameEmpty = string.IsNullOrWhiteSpace(name);
@@ -87,12 +85,6 @@ public sealed class NamespaceWriter : INamespaceWriter
             throw new ArgumentNullException(nameof(cid));
         }
 
-        bool pkEmpty = string.IsNullOrWhiteSpace(pk);
-        if (pkEmpty)
-        {
-            throw new ArgumentNullException(nameof(pk));
-        }
-
         var draft = new CustomDataLink
         {
             Name = name,
@@ -100,10 +92,14 @@ public sealed class NamespaceWriter : INamespaceWriter
             ChainId = Helpers.DefaultChainId,
             SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             Nonce = CustomDataLink.NewNonce(),
-            Encrypted = false
+            Encrypted = false,
+            SignerAddress = _signer.Address
         };
 
-        CustomDataLink signed = _signer.Sign(draft, pk);
+        byte[] canonical = CanonicalJson.CanonicaliseWithoutSignature(draft);
+        byte[] sig = await _signer.SignAsync(canonical, draft.ChainId, ct).ConfigureAwait(false);
+
+        var signed = draft with { Signature = "0x" + sig.ToHex() };
 
         await PersistAsync([signed], ct);
         return signed;
@@ -113,18 +109,9 @@ public sealed class NamespaceWriter : INamespaceWriter
 
     public async Task<IReadOnlyList<CustomDataLink>> AddJsonBatchAsync(
         IEnumerable<(string name, string json)> items,
-        string pk,
         CancellationToken ct = default)
     {
-        bool pkEmpty = string.IsNullOrWhiteSpace(pk);
-        if (pkEmpty)
-        {
-            throw new ArgumentNullException(nameof(pk));
-        }
-
-        var vec = new List<CustomDataLink>();
-
-        var itemsArray = items.ToArray();
+        var itemsArray = (items ?? throw new ArgumentNullException(nameof(items))).ToArray();
 
         bool anyNameMissing = itemsArray.Any(o => string.IsNullOrWhiteSpace(o.name));
         if (anyNameMissing)
@@ -132,11 +119,11 @@ public sealed class NamespaceWriter : INamespaceWriter
             throw new ArgumentException("At least one of the items in the list doesn't have a name.", nameof(items));
         }
 
+        var vec = new List<CustomDataLink>(itemsArray.Length);
         foreach (var (n, j) in itemsArray)
         {
             ct.ThrowIfCancellationRequested();
             string cid = await _ipfs.AddStringAsync(j, pin: true, ct);
-
             vec.Add(new CustomDataLink
             {
                 Name = n,
@@ -144,53 +131,59 @@ public sealed class NamespaceWriter : INamespaceWriter
                 ChainId = Helpers.DefaultChainId,
                 SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 Nonce = CustomDataLink.NewNonce(),
-                Encrypted = false
+                Encrypted = false,
+                SignerAddress = _signer.Address
             });
         }
 
-        vec = vec.Select(l => _signer.Sign(l, pk)).ToList();
-        await PersistAsync(vec, ct);
-        return vec;
+        var signed = new List<CustomDataLink>(vec.Count);
+        foreach (var l in vec)
+        {
+            byte[] canonical = CanonicalJson.CanonicaliseWithoutSignature(l);
+            byte[] sig = await _signer.SignAsync(canonical, l.ChainId, ct).ConfigureAwait(false);
+            signed.Add(l with { Signature = "0x" + sig.ToHex() });
+        }
+
+        await PersistAsync(signed, ct);
+        return signed;
     }
 
     public async Task<IReadOnlyList<CustomDataLink>> AttachCidBatchAsync(
         IEnumerable<(string name, string cid)> items,
-        string pk,
         CancellationToken ct = default)
     {
-        bool pkEmpty = string.IsNullOrWhiteSpace(pk);
-        if (pkEmpty)
-        {
-            throw new ArgumentNullException(nameof(pk));
-        }
+        var arr = (items ?? throw new ArgumentNullException(nameof(items))).ToArray();
 
-        var vec = items.Select(i =>
+        var vec = arr.Select(i =>
         {
             bool nameEmpty = string.IsNullOrWhiteSpace(i.name);
-            if (nameEmpty)
-            {
-                throw new ArgumentNullException(nameof(i.name));
-            }
+            if (nameEmpty) { throw new ArgumentNullException(nameof(i.name)); }
 
             bool cidEmpty = string.IsNullOrWhiteSpace(i.cid);
-            if (cidEmpty)
-            {
-                throw new ArgumentNullException(nameof(i.cid));
-            }
+            if (cidEmpty) { throw new ArgumentNullException(nameof(i.cid)); }
 
             return new CustomDataLink
             {
                 Name = i.name,
                 Cid = i.cid,
+                ChainId = Helpers.DefaultChainId,
                 SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 Nonce = CustomDataLink.NewNonce(),
-                Encrypted = false
+                Encrypted = false,
+                SignerAddress = _signer.Address
             };
         }).ToList();
 
-        vec = vec.Select(l => _signer.Sign(l, pk)).ToList();
-        await PersistAsync(vec, ct);
-        return vec;
+        var signed = new List<CustomDataLink>(vec.Count);
+        foreach (var l in vec)
+        {
+            byte[] canonical = CanonicalJson.CanonicaliseWithoutSignature(l);
+            byte[] sig = await _signer.SignAsync(canonical, l.ChainId, ct).ConfigureAwait(false);
+            signed.Add(l with { Signature = "0x" + sig.ToHex() });
+        }
+
+        await PersistAsync(signed, ct);
+        return signed;
     }
 
     /* internals --------------------------------------------------- */

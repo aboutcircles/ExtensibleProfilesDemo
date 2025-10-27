@@ -23,7 +23,7 @@ public sealed class SafeSignature_StandaloneTests
     private string _safe = string.Empty;
 
     private EthereumChainApi _chain = null!;
-    private SafeLinkSigner _signer = null!;
+    // removed legacy signer; using SafeSigner per ISigner API
 
     private byte[] _payloadBytes = [];
     private byte[] _payloadKeccak = [];
@@ -41,13 +41,12 @@ public sealed class SafeSignature_StandaloneTests
 
         var ownerKey = EthECKey.GenerateKey();
         _owner = new Account(ownerKey.GetPrivateKey(), ChainId);
-        await SafeHelper.FundAsync(_web3, _deployer, _owner.Address, 0.001);
+        await SafeHelper.FundAsync(_web3, _deployer, _owner.Address, 0.001m);
 
         _safe = await SafeHelper.DeploySafe141OnGnosisAsync(_web3, [_deployer.Address, _owner.Address],
             threshold: 1);
 
         _chain = new EthereumChainApi(_web3, new BigInteger(ChainId));
-        _signer = new SafeLinkSigner(_safe, _chain);
 
         var draft = new CustomDataLink
         {
@@ -58,11 +57,13 @@ public sealed class SafeSignature_StandaloneTests
             SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             Nonce = CustomDataLink.NewNonce()
         };
-        var signed = _signer.Sign(draft, _owner.PrivateKey);
+
+        var signer = new SafeSigner(_safe, new EthECKey(_owner.PrivateKey));
+        var signed = await LinkSigning.SignAsync(draft, signer);
 
         _payloadBytes = CanonicalJson.CanonicaliseWithoutSignature(signed);
         _payloadKeccak = Sha3.Keccak256Bytes(_payloadBytes);
-        _safeMessageHash = SafeLinkSigner.ComputeSafeHash(_payloadKeccak, _chain.Id, _safe);
+        _safeMessageHash = SafeSigner.ComputeSafeHash(_payloadKeccak, new BigInteger(ChainId), _safe);
         _signature = signed.Signature.HexToByteArray();
 
         await TestContext.Out.WriteLineAsync($"safe      : {_safe}");

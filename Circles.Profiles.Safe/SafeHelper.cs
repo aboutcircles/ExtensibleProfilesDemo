@@ -154,11 +154,11 @@ public static class SafeHelper
 
     /* ---------- util helpers ------------------------------------------- */
     public static async Task FundAsync(
-        Web3 web3, Account deployer, string to, double xDai, CancellationToken ct = default)
+        Web3 web3, Account deployer, string to, decimal xDai, CancellationToken ct = default)
     {
         Console.WriteLine($"[SafeHelpers] Funding {to} with {xDai} xDAI");
         await web3.Eth.GetEtherTransferService()
-            .TransferEtherAndWaitForReceiptAsync(to, (decimal)xDai, cancellationToken: ct);
+            .TransferEtherAndWaitForReceiptAsync(to, xDai, cancellationToken: ct);
     }
 
     public static byte[] EncodeUpdateDigest(byte[] digest)

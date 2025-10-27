@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Circles.Profiles.Interfaces/Circles.Profiles.Interfaces.csproj" />
+        <ProjectReference Include="../Circles.Profiles.Sdk/Circles.Profiles.Sdk.csproj" />
+        <ProjectReference Include="../Circles.Profiles.Aggregation/Circles.Profiles.Aggregation.csproj" />
+        <ProjectReference Include="../Circles.Profiles.Market/Circles.Profiles.Market.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
+    </ItemGroup>
+
+</Project>

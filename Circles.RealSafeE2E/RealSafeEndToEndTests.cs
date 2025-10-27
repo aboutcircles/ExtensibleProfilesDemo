@@ -12,9 +12,13 @@ namespace Circles.RealSafeE2E;
 public class RealSafeEndToEndTests
 {
     private const string Rpc = "http://localhost:8545";
+    private const int ChainId = 100; // Gnosis Chain (0x64)
 
     private Account _deployer = null!;
     private Web3 _web3 = null!;
+
+    private string _ipfsRpcApiUrl = null!;
+    private string? _ipfsRpcApiBearer;
 
     private record Actor(string Alias, Account OwnerKey, string SafeAddr, Profile Profile);
 
@@ -28,16 +32,21 @@ public class RealSafeEndToEndTests
 
         var privateKey = Environment.GetEnvironmentVariable("PRIVATE_KEY") ??
                          throw new ArgumentException("The PRIVATE_KEY environment variable is not set");
-        
-        _deployer = new Account(privateKey, 100);
+
+        _deployer = new Account(privateKey, ChainId);
         _web3 = new Web3(_deployer, Rpc);
+
+        _ipfsRpcApiUrl = Environment.GetEnvironmentVariable("IPFS_RPC_URL") ??
+                         throw new ArgumentException("The IPFS_RPC_URL environment variable is not set");
+
+        _ipfsRpcApiBearer = Environment.GetEnvironmentVariable("IPFS_RPC_BEARER");
 
         foreach (string alias in new[] { "Alice", "Bob", "Charly" })
         {
             var ownerKey = Nethereum.Signer.EthECKey.GenerateKey();
-            var acct = new Account(ownerKey.GetPrivateKey(), 100);
+            var acct = new Account(ownerKey.GetPrivateKey(), ChainId);
 
-            await SafeHelper.FundAsync(_web3, _deployer, acct.Address, 0.001);
+            await SafeHelper.FundAsync(_web3, _deployer, acct.Address, 0.001m);
             string safeAddr = await SafeHelper.DeploySafe141OnGnosisAsync(
                 _web3, [_deployer.Address, acct.Address], threshold: 1);
 
@@ -50,8 +59,7 @@ public class RealSafeEndToEndTests
     [Test]
     public async Task PingPong_MultiRound_EndToEnd()
     {
-        await using var ipfs = new IpfsRpcApiStore();
-        var chainApi = new EthereumChainApi(_web3, 100);
+        await using var ipfs = new IpfsRpcApiStore(_ipfsRpcApiUrl, _ipfsRpcApiBearer);
 
         const int rounds = 3;
         Console.WriteLine($"[E2E] Writing {rounds} rounds, all sender→recipient pairs");
@@ -63,7 +71,8 @@ public class RealSafeEndToEndTests
             {
                 foreach (var recipient in _actors.Where(a => a != sender))
                 {
-                    var signer = new SafeLinkSigner(sender.SafeAddr, chainApi);
+                    var signer = new SafeSigner(sender.SafeAddr,
+                        new Nethereum.Signer.EthECKey(sender.OwnerKey.PrivateKey));
                     var writer = await NamespaceWriter.CreateAsync(
                         sender.Profile, recipient.SafeAddr, ipfs, signer);
 
@@ -72,7 +81,7 @@ public class RealSafeEndToEndTests
                         new { txt = $"round {r} – hi from {sender.Alias} to {recipient.Alias}" });
 
                     var link = await writer.AddJsonAsync(
-                        logicalName, json, sender.OwnerKey.PrivateKey);
+                        logicalName, json);
 
                     Console.WriteLine($"[round {r}] {sender.Alias} → {recipient.Alias}  {logicalName}  CID={link.Cid}");
                 }

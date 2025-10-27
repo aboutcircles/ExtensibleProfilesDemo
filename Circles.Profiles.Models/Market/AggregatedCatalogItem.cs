@@ -11,5 +11,8 @@ public sealed record AggregatedCatalogItem
     [JsonPropertyName("publishedAt")] public long PublishedAt { get; init; }
     [JsonPropertyName("linkKeccak")] public string LinkKeccak { get; init; } = string.Empty;
 
+    // New: carry winner link’s index within its chunk (CPA tiebreaker)
+    [JsonPropertyName("indexInChunk")] public int IndexInChunk { get; init; }
+
     [JsonPropertyName("product")] public required SchemaOrgProduct Product { get; init; }
 }

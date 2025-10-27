@@ -40,9 +40,24 @@ namespace Circles.Profiles.Sdk
             bool isHash32 = dataOrHash.Length == 32;
             if (isHash32)
             {
-                return await Try1271Async(
+                // First try the bytes32 overload
+                bool ok32 = await Try1271Async(
                     EthereumChainApi.ERC1271_BYTES32_ABI,
                     EthereumChainApi.ERC1271_MAGIC_VALUE_BYTES32,
+                    safeAddress,
+                    dataOrHash,
+                    signature,
+                    ct).ConfigureAwait(false);
+
+                if (ok32)
+                {
+                    return true;
+                }
+
+                // Fallback: some wallets only implement the bytes overload reliably.
+                return await Try1271Async(
+                    EthereumChainApi.ERC1271_BYTES_ABI,
+                    EthereumChainApi.ERC1271_MAGIC_VALUE_BYTES,
                     safeAddress,
                     dataOrHash,
                     signature,

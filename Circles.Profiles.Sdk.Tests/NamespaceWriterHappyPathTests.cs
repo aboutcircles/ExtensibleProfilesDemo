@@ -1,19 +1,19 @@
 using Circles.Profiles.Models;
 using Circles.Profiles.Models.Core;
 using Circles.Profiles.Sdk.Tests.Mocks;
+using Nethereum.Signer;
 
 namespace Circles.Profiles.Sdk.Tests;
 
 [TestFixture]
 public class NamespaceWriterHappyPathTests
 {
-    private readonly string _priv = Nethereum.Signer.EthECKey.GenerateKey().GetPrivateKey();
-
     private async Task<(Profile p, InMemoryIpfsStore store, NamespaceWriter w)> Boot(string nsKey = "Bob")
     {
         var p = new Profile { Name = "Alice", Description = "Demo" };
         var s = new InMemoryIpfsStore();
-        return (p, s, await NamespaceWriter.CreateAsync(p, nsKey, s, new EoaLinkSigner()));
+        var signer = new EoaSigner(EthECKey.GenerateKey());
+        return (p, s, await NamespaceWriter.CreateAsync(p, nsKey, s, signer));
     }
 
     [Test]
@@ -21,14 +21,13 @@ public class NamespaceWriterHappyPathTests
     {
         var (prof, store, w) = await Boot();
 
-        var link = await w.AddJsonAsync("msg-1", """{ "hello":"world" }""", _priv);
+        var link = await w.AddJsonAsync("msg-1", """{ "hello":"world" }""");
 
         await Assert.MultipleAsync(async () =>
         {
             Assert.That(link.Name, Is.EqualTo("msg-1"));
             Assert.That(prof.Namespaces, Contains.Key("bob"));
 
-            // chunk and index must be fetchable from "IPFS"
             var indexCid = prof.Namespaces["bob"];
             Assert.DoesNotThrowAsync(() => store.CatAsync(indexCid));
 
@@ -42,11 +41,8 @@ public class NamespaceWriterHappyPathTests
     {
         var (prof, _, w) = await Boot();
 
-        var items = new[]
-        {
-            ("alpha", "CID-A"), ("beta", "CID-B"), ("gamma", "CID-C")
-        };
-        var links = await w.AttachCidBatchAsync(items, _priv);
+        var items = new[] { ("alpha", "CID-A"), ("beta", "CID-B"), ("gamma", "CID-C") };
+        var links = await w.AttachCidBatchAsync(items);
 
         Assert.That(links.Select(l => l.Name),
             Is.EquivalentTo(items.Select(i => i.Item1)));
@@ -59,9 +55,9 @@ public class NamespaceWriterHappyPathTests
         var (_, _, w) = await Boot();
 
         for (int i = 0; i < Helpers.ChunkMaxLinks; i++)
-            await w.AddJsonAsync($"n{i}", "{}", _priv);
+            await w.AddJsonAsync($"n{i}", "{}");
 
-        var firstHead = w.AddJsonAsync("overflow", "{}", _priv);
+        var firstHead = w.AddJsonAsync("overflow", "{}");
         Assert.DoesNotThrowAsync(() => firstHead); // rotation happened without error
     }
 }

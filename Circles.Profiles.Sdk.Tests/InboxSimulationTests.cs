@@ -22,13 +22,13 @@ public class InboxSimulationTests
         var aliceProfile = new Profile();
         var bobProfile = new Profile();
 
-        _ = await NamespaceWriter.CreateAsync(aliceProfile, /*nsKey*/"Bob", store, new EoaLinkSigner());
-        var b2A = await NamespaceWriter.CreateAsync(bobProfile, /*nsKey*/"Alice", store, new EoaLinkSigner());
+        _ = await NamespaceWriter.CreateAsync(aliceProfile, /*nsKey*/"Bob", store, new EoaSigner(EthECKey.GenerateKey()));
+        var b2A = await NamespaceWriter.CreateAsync(bobProfile, /*nsKey*/"Alice", store, new EoaSigner(EthECKey.GenerateKey()));
 
         /* ------- Bob sends two messages ------- */
-        await b2A.AddJsonAsync("msg-1", """{"txt":"hi"}""", _bPriv);
+        await b2A.AddJsonAsync("msg-1", """{"txt":"hi"}""");
         await Task.Delay(10);
-        await b2A.AddJsonAsync("msg-2", """{"txt":"sup"}""", _bPriv);
+        await b2A.AddJsonAsync("msg-2", """{"txt":"sup"}""");
 
         /* -------- Alice’s “inbox” walk -------- */
         var idxCid = bobProfile.Namespaces["alice"];
@@ -59,7 +59,6 @@ public class InboxSimulationTests
             .Select(l => l.Name)
             .ToArray();
 
-        collected.Sort((x, y) => y.SignedAt.CompareTo(x.SignedAt));
 
         Assert.That(names, Is.EqualTo(new[] { "msg-2", "msg-1" }).AsCollection);
     }
@@ -78,7 +77,8 @@ public class InboxSimulationTests
         var bob = new Profile { Name = "Bob", Description = "desc" };
 
         // Bob sends a message to Alice (the normal use-case)
-        var bobToAliceWriter = await NamespaceWriter.CreateAsync(bob, aAddr, ipfs, new EoaLinkSigner());
+        var signer = new EoaSigner(new EthECKey(bPriv));
+        var bobToAliceWriter = await NamespaceWriter.CreateAsync(bob, aAddr, ipfs, signer);
         var msgObj = new BasicMessage
         {
             From = bAddr,
@@ -89,14 +89,14 @@ public class InboxSimulationTests
         };
         var msgJson = JsonSerializer.Serialize(msgObj,
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-        await bobToAliceWriter.AddJsonAsync("msg-1", msgJson, bPriv);
+        await bobToAliceWriter.AddJsonAsync("msg-1", msgJson);
 
         // Simulate Bob saving his profile (as would happen in a real app)
         var regMock = NameRegistryMock.WithProfileCid(bAddr, await ipfs.AddStringAsync(JsonSerializer.Serialize(bob)));
         var store = new ProfileStore(ipfs, regMock.Object);
 
         // Re-save Bob's profile, so the IPFS content includes the new message namespace
-        await store.SaveAsync(bob, bPriv);
+        await store.SaveAsync(bob, signer);
 
         // ----- "Inbox" logic -----
         // Alice reads her inbox: for each trusted sender, she checks their profile, 

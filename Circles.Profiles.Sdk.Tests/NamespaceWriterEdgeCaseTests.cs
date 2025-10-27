@@ -7,14 +7,13 @@ namespace Circles.Profiles.Sdk.Tests;
 [TestFixture]
 public class NamespaceWriterEdgeCaseTests
 {
-    private readonly string _priv = Nethereum.Signer.EthECKey.GenerateKey().GetPrivateKey();
 
     private static async Task<(Profile p, InMemoryIpfsStore store, NamespaceWriter w)>
         Boot(string nsKey)
     {
         var p = new Profile { Name = "X", Description = "Y" };
         var s = new InMemoryIpfsStore();
-        var w = await NamespaceWriter.CreateAsync(p, nsKey, s, new EoaLinkSigner());
+        var w = await NamespaceWriter.CreateAsync(p, nsKey, s, new EoaSigner(Nethereum.Signer.EthECKey.GenerateKey()));
         return (p, s, w);
     }
 
@@ -23,9 +22,9 @@ public class NamespaceWriterEdgeCaseTests
     {
         var (_, store, w) = await Boot("Carol");
 
-        var a = await w.AddJsonAsync("dup", """{"v":1}""", _priv);
+        var a = await w.AddJsonAsync("dup", """{"v":1}""");
         await Task.Delay(5); // ensure timestamp difference
-        var b = await w.AddJsonAsync("dup", """{"v":2}""", _priv);
+        var b = await w.AddJsonAsync("dup", """{"v":2}""");
 
         Assert.That(b.SignedAt, Is.GreaterThanOrEqualTo(a.SignedAt));
 
@@ -39,5 +38,5 @@ public class NamespaceWriterEdgeCaseTests
     [Test]
     public Task AttachExistingCidAsync_NullName_Throws()
         => Task.FromResult(Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await (await Boot("k")).w.AttachExistingCidAsync(null!, "cid", _priv)));
+            await (await Boot("k")).w.AttachExistingCidAsync(null!, "cid")));
 }

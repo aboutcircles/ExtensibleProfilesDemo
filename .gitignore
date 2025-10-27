@@ -1,5 +1,13 @@
-bin/
-obj/
-/packages/
-riderModule.iml
-/_ReSharper.Caches/
+# Build artifacts
+**/bin/
+**/obj/
+
+# Generated assembly info files
+**/*AssemblyInfo.cs
+
+# Rider / JetBrains
+.idea/
+*.DotSettings.user
+
+# npm/yarn
+node_modules/

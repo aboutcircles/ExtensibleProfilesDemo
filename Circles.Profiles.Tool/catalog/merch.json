@@ -1,0 +1,392 @@
+[
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Circles T-Shirt (Organic Cotton)",
+    "description": "Unisex tee, 180gsm organic cotton, screen-printed Circles logo.",
+    "sku": "crc-shirt-1",
+    "brand": "Circles",
+    "category": "Apparel",
+    "image": [{
+      "contentUrl": "cid://QmU46oQhxfYu1jYcmpRAXKXDpE3wEBf544eRbZjJwpXB6L",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmU46oQhxfYu1jYcmpRAXKXDpE3wEBf544eRbZjJwpXB6L"
+    }],
+    "url": "https://shop.circles.example/products/CRC-TS-ORG-001",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 25.00,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "inventoryLevel": { "@type": "QuantitativeValue", "value": 120, "unitCode": "C62" },
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/25",
+        "url": "https://shop.circles.example/products/CRC-TS-ORG-001"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Circles Enamel Pin",
+    "description": "1\" soft-enamel pin with butterfly clasp.",
+    "sku": "crc-pin-1",
+    "brand": "Circles",
+    "category": "Accessories",
+    "image": [{
+      "contentUrl": "cid://QmZTof6ecqN7BimPgqYsF4pHvC1Yn2Hv3TAPn6bW1JSQzP",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmZTof6ecqN7BimPgqYsF4pHvC1Yn2Hv3TAPn6bW1JSQzP"
+    }],
+    "url": "https://shop.circles.example/products/CRC-PIN-001",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 6.50,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "inventoryLevel": { "@type": "QuantitativeValue", "value": 400, "unitCode": "C62" },
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/6",
+        "url": "https://shop.circles.example/products/CRC-PIN-001"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Recycled Notebook (A5)",
+    "description": "A5 dotted notebook, 100% post-consumer recycled paper.",
+    "sku": "crc-notebook-1",
+    "brand": "Circles",
+    "category": "Office Supplies",
+    "image": [{
+      "contentUrl": "cid://QmUgCHwVHxjTfgDwxtq8NNBBw3vrs1WA5xMhZ8kct1SxnG",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmUgCHwVHxjTfgDwxtq8NNBBw3vrs1WA5xMhZ8kct1SxnG"
+    }],
+    "url": "https://shop.circles.example/products/CRC-NBK-RC-001",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 8.90,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/1",
+        "url": "https://shop.circles.example/products/CRC-NBK-RC-001"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Bamboo Toothbrush (4-pack)",
+    "description": "Biodegradable bamboo toothbrushes with medium bristles.",
+    "sku": "crc-toothbrush-1",
+    "brand": "Circles",
+    "category": "Health & Beauty",
+    "image": [{
+      "contentUrl": "cid://QmTshgA1HtNnzCDpPUedmpe3SGVEBth6gnmJKc3d9nHrNe",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmTshgA1HtNnzCDpPUedmpe3SGVEBth6gnmJKc3d9nHrNe"
+    }],
+    "url": "https://shop.circles.example/products/CRC-BMB-TBR-4P",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 12.00,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "inventoryLevel": { "@type": "QuantitativeValue", "value": 250, "unitCode": "C62" },
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/12",
+        "url": "https://shop.circles.example/products/CRC-BMB-TBR-4P"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Circles Dev Summit 2025 – General Admission",
+    "description": "One-day pass to Circles Dev Summit (GA).",
+    "sku": "crc-dev-summit-1",
+    "brand": "Circles",
+    "category": "Tickets",
+    "image": [{
+      "contentUrl": "cid://QmbkUv3jjn19KdYugF9fXkWG7rZ9BwqePCgWnmC2BdxB9A",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmbkUv3jjn19KdYugF9fXkWG7rZ9BwqePCgWnmC2BdxB9A"
+    }],
+    "url": "https://events.circles.example/cds25/ga",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 79.00,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/79",
+        "url": "https://events.circles.example/cds25/ga",
+        "priceValidUntil": "2025-12-01T23:59:59Z"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Circles Meetup – Early Bird",
+    "description": "Early-bird ticket for local Circles meetup. Limited quantity.",
+    "sku": "crc-meetup-1",
+    "brand": "Circles",
+    "category": "Tickets",
+    "image": [{
+      "contentUrl": "cid://Qmem67NT3wWZb3DK62rtRMUp5QvVSp9uML9cj7pkkjUWyJ",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/Qmem67NT3wWZb3DK62rtRMUp5QvVSp9uML9cj7pkkjUWyJ"
+    }],
+    "url": "https://events.circles.example/meetup/early-bird",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 12.00,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "inventoryLevel": { "@type": "QuantitativeValue", "value": 50, "unitCode": "C62" },
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/12",
+        "url": "https://events.circles.example/meetup/early-bird",
+        "priceValidUntil": "2025-11-30T23:59:59Z"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Gift Voucher – 25 CRC",
+    "description": "Digital voucher redeemable for any Circles merch.",
+    "sku": "crc-voucher-1",
+    "brand": "Circles",
+    "category": "Vouchers",
+    "image": [{
+      "contentUrl": "cid://QmYnd9Z9SJmUu1M2hX7AwJSmNqdY539BSL8nG1aYZ4MLZj",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmYnd9Z9SJmUu1M2hX7AwJSmNqdY539BSL8nG1aYZ4MLZj"
+    }],
+    "url": "https://shop.circles.example/vouchers/25",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 25.00,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/25",
+        "url": "https://shop.circles.example/vouchers/25"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Gift Voucher – 100 CRC",
+    "description": "Digital voucher redeemable across the Circles store.",
+    "sku": "crc-voucher-2",
+    "brand": "Circles",
+    "category": "Vouchers",
+    "image": [{
+      "contentUrl": "cid://QmcALXtAWqVDg5s3kxMBdR43vdCfwg5XAmYxjPQiPLUUyK",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmcALXtAWqVDg5s3kxMBdR43vdCfwg5XAmYxjPQiPLUUyK"
+    }],
+    "url": "https://shop.circles.example/vouchers/100",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 100.00,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/100",
+        "url": "https://shop.circles.example/vouchers/100"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Circles Hoodie (Fleece, Unisex)",
+    "description": "Midweight fleece hoodie with embroidered Circles monogram.",
+    "sku": "crc-hoodie-1",
+    "brand": "Circles",
+    "category": "Apparel",
+    "image": [{
+      "contentUrl": "cid://QmX1hoodieCid1234567890abcdef",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmX1hoodieCid1234567890abcdef"
+    }],
+    "url": "https://shop.circles.example/products/CRC-HDY-FLC-001",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 49.00,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "inventoryLevel": { "@type": "QuantitativeValue", "value": 80, "unitCode": "C62" },
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/49",
+        "url": "https://shop.circles.example/products/CRC-HDY-FLC-001"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Stainless Steel Water Bottle (750ml)",
+    "description": "Double-wall insulated bottle keeps drinks cold for 24h.",
+    "sku": "crc-bottle-1",
+    "brand": "Circles",
+    "category": "Accessories",
+    "image": [{
+      "contentUrl": "cid://QmBottleCidABCDEF1234567890",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmBottleCidABCDEF1234567890"
+    }],
+    "url": "https://shop.circles.example/products/CRC-BOT-SS-750",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 19.00,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "inventoryLevel": { "@type": "QuantitativeValue", "value": 150, "unitCode": "C62" },
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/19",
+        "url": "https://shop.circles.example/products/CRC-BOT-SS-750"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Sticker Pack (10 pcs)",
+    "description": "Matte vinyl stickers featuring Circles icon set.",
+    "sku": "crc-stickers-1",
+    "brand": "Circles",
+    "category": "Accessories",
+    "image": [{
+      "contentUrl": "cid://QmStickerCid123abcd7890ef",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmStickerCid123abcd7890ef"
+    }],
+    "url": "https://shop.circles.example/products/CRC-STK-010",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 4.00,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "inventoryLevel": { "@type": "QuantitativeValue", "value": 500, "unitCode": "C62" },
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/4",
+        "url": "https://shop.circles.example/products/CRC-STK-010"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Canvas Tote Bag",
+    "description": "Heavy-duty 12oz canvas tote with reinforced handles.",
+    "sku": "crc-tote-1",
+    "brand": "Circles",
+    "category": "Accessories",
+    "image": [{
+      "contentUrl": "cid://QmToteCid09876fedcba4321",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmToteCid09876fedcba4321"
+    }],
+    "url": "https://shop.circles.example/products/CRC-TOTE-CNV-001",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 9.50,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "inventoryLevel": { "@type": "QuantitativeValue", "value": 200, "unitCode": "C62" },
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/9",
+        "url": "https://shop.circles.example/products/CRC-TOTE-CNV-001"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Ceramic Mug (350ml)",
+    "description": "Dishwasher-safe ceramic mug with wrap-around print.",
+    "sku": "crc-mug-1",
+    "brand": "Circles",
+    "category": "Home & Living",
+    "image": [{
+      "contentUrl": "cid://QmMugCidabcdef1234567890",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmMugCidabcdef1234567890"
+    }],
+    "url": "https://shop.circles.example/products/CRC-MUG-350",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 11.00,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "inventoryLevel": { "@type": "QuantitativeValue", "value": 180, "unitCode": "C62" },
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/11",
+        "url": "https://shop.circles.example/products/CRC-MUG-350"
+      }
+    ]
+  },
+  {
+    "@context": [
+      "https://schema.org/",
+      "https://aboutcircles.com/contexts/circles-market/"
+    ],
+    "@type": "Product",
+    "name": "Laptop Sleeve (13\")",
+    "description": "Neoprene sleeve with padded interior and Circles logo patch.",
+    "sku": "crc-sleeve-1",
+    "brand": "Circles",
+    "category": "Accessories",
+    "image": [{
+      "contentUrl": "cid://QmSleeveCid1122334455667788",
+      "url": "https://evident-magenta-puma.myfilebase.com/ipfs/QmSleeveCid1122334455667788"
+    }],
+    "url": "https://shop.circles.example/products/CRC-SLV-13",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": 22.00,
+        "priceCurrency": "CRC",
+        "availability": "https://schema.org/InStock",
+        "inventoryLevel": { "@type": "QuantitativeValue", "value": 90, "unitCode": "C62" },
+        "checkout": "https://app.metri.xyz/transfer/0xfDEA8140093878BfcA93aAA35d3D3087F4Ab136d/crc/22",
+        "url": "https://shop.circles.example/products/CRC-SLV-13"
+      }
+    ]
+  }
+]
