@@ -12,25 +12,22 @@ namespace Circles.Profiles.Sdk.Tests;
 [TestFixture]
 public class NamespaceWriterTests
 {
-    private readonly string _priv = EthECKey.GenerateKey().GetPrivateKey();
-
     private static async Task<(Profile, InMemoryIpfsStore, NamespaceWriter)> Setup(string nsKey)
     {
         var profile = new Profile { Name = "t", Description = "d" };
         var ipfs = new InMemoryIpfsStore();
         var writer = await NamespaceWriter.CreateAsync(profile, nsKey, ipfs,
-            new EoaLinkSigner());
+            new EoaSigner(EthECKey.GenerateKey()));
 
         return (profile, ipfs, writer);
     }
-
 
     [Test]
     public async Task AddJsonAsync_AddsLink_AndPinsBlob()
     {
         var (prof, ipfs, w) = await Setup("bob");
 
-        var link = await w.AddJsonAsync("msg-1", """{ "hello": "world" }""", _priv);
+        var link = await w.AddJsonAsync("msg-1", """{ "hello": "world" }""");
 
         Assert.Multiple(() =>
         {
@@ -46,7 +43,7 @@ public class NamespaceWriterTests
         var (prof, _, w) = await Setup("bob");
 
         for (int i = 0; i < Helpers.ChunkMaxLinks + 1; i++)
-            await w.AddJsonAsync($"n{i}", "{}", _priv);
+            await w.AddJsonAsync($"n{i}", "{}");
 
         var headCid = prof.Namespaces["bob"]; // index head → latest chunk
         Assert.That(headCid, Is.Not.Null.And.Not.Empty);
@@ -58,7 +55,7 @@ public class NamespaceWriterTests
         var (prof, _, w) = await Setup("bob");
 
         var items = new[] { ("a", "cid-A"), ("b", "cid-B"), ("c", "cid-C") };
-        var links = await w.AttachCidBatchAsync(items, _priv);
+        var links = await w.AttachCidBatchAsync(items);
 
         Assert.That(links.Select(l => l.Name), Is.EquivalentTo(new[] { "a", "b", "c" }));
         Assert.That(prof.Namespaces, Contains.Key("bob"));
@@ -70,15 +67,13 @@ public class NamespaceWriterTests
         var profile = new Profile();
         var ipfs = new InMemoryIpfsStore();
         var writer = await NamespaceWriter.CreateAsync(
-            profile, "dst", ipfs, new EoaLinkSigner());
-
-        string priv = EthECKey.GenerateKey().GetPrivateKey();
+            profile, "dst", ipfs, new EoaSigner(EthECKey.GenerateKey()));
 
         var items = Enumerable.Range(0, 5)
             .Select(i => ($"n{i}", $"{{\"v\":{i}}}"))
             .ToArray();
 
-        var links = await writer.AddJsonBatchAsync(items, priv);
+        var links = await writer.AddJsonBatchAsync(items);
 
         Assert.Multiple(() =>
         {
@@ -95,16 +90,14 @@ public class NamespaceWriterTests
         var profile = new Profile();
         var ipfs = new InMemoryIpfsStore();
         var writer = await NamespaceWriter.CreateAsync(
-            profile, "dst", ipfs, new EoaLinkSigner());
-
-        string priv = EthECKey.GenerateKey().GetPrivateKey();
+            profile, "dst", ipfs, new EoaSigner(EthECKey.GenerateKey()));
 
         int total = Helpers.ChunkMaxLinks + 10; // forces rotation
         var items = Enumerable.Range(0, total)
             .Select(i => ($"item{i}", "{}"))
             .ToArray();
 
-        await writer.AddJsonBatchAsync(items, priv);
+        await writer.AddJsonBatchAsync(items);
 
         var idxCid = profile.Namespaces["dst"];
         var idxDoc = await Helpers.LoadIndex(idxCid, ipfs);
@@ -132,12 +125,12 @@ public class NamespaceWriterTests
     {
         var user = new Profile();
         var ipfs = new InMemoryIpfsStore();
-        var signer = new EoaLinkSigner();
+        var signer = new EoaSigner(EthECKey.GenerateKey());
 
         var writer = await NamespaceWriter.CreateAsync(
             user, /*nsKey*/"0xDappAddr", ipfs, signer);
 
-        var badLink = signer.Sign(new CustomDataLink
+        var badLink = await LinkSigning.SignAsync(new CustomDataLink
         {
             Name = "settings",
             Cid = "CID‑x",
@@ -145,7 +138,7 @@ public class NamespaceWriterTests
             SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             Nonce = CustomDataLink.NewNonce(),
             Encrypted = false
-        }, /*priv*/EthECKey.GenerateKey().GetPrivateKey());
+        }, new EoaSigner(EthECKey.GenerateKey())); // signerAddress ≠ namespace key
 
         // signerAddress ≠ namespace key – must throw
         var dummyChain = new Mock<IChainApi>();
@@ -166,12 +159,12 @@ public class NamespaceWriterTests
 
         var prof = new Profile();
         var ipfs = new InMemoryIpfsStore();
-        var signer = new EoaLinkSigner(); // sign with dappKey later
+        var signer = new EoaSigner(EthECKey.GenerateKey()); // sign with dappKey later
 
         var writer = await NamespaceWriter.CreateAsync(
             prof, dappAddr, ipfs, signer);
 
-        var link = signer.Sign(new CustomDataLink
+        var link = await LinkSigning.SignAsync(new CustomDataLink
         {
             Name = "theme",
             Cid = "CID‑settings",
@@ -179,7 +172,7 @@ public class NamespaceWriterTests
             SignedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             Nonce = CustomDataLink.NewNonce(),
             Encrypted = false
-        }, dappKey.GetPrivateKey());
+        }, new EoaSigner(dappKey));
 
         // build minimal operator profile with valid key‑fp
         string fp = SigningKeyUtils.ComputeFingerprint(dappKey);

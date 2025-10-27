@@ -215,33 +215,33 @@ public sealed class MarketWithSafesEndToEndTests
 
     private async Task PublishProductAsync(IIpfsStore ipfs, Seller seller, string sku, string name, decimal price)
     {
-        var signer = new SafeLinkSigner(seller.SafeAddr, _chain);
+        var signer = new SafeSigner(seller.SafeAddr, new Nethereum.Signer.EthECKey(seller.OwnerKey.PrivateKey));
         var writer = await NamespaceWriter.CreateAsync(seller.Profile, _operatorAddr, ipfs, signer);
 
         var product = BuildProduct(sku, name, price, checkoutUrl: $"https://buy.example.com/{sku}");
         string json = JsonSerializer.Serialize(product, JsonSerializerOptions.JsonLd);
 
         // The link name must be product/<sku> and the payload sku must match (enforced in aggregator)
-        var link = await writer.AddJsonAsync($"product/{sku}", json, seller.OwnerKey.PrivateKey);
+        var link = await writer.AddJsonAsync($"product/{sku}", json);
 
         TestContext.Out.WriteLine($"[publish] {seller.Alias} {sku} → CID={link.Cid}");
     }
 
     private async Task TombstoneAsync(IIpfsStore ipfs, Seller seller, string sku)
     {
-        var signer = new SafeLinkSigner(seller.SafeAddr, _chain);
+        var signer = new SafeSigner(seller.SafeAddr, new Nethereum.Signer.EthECKey(seller.OwnerKey.PrivateKey));
         var writer = await NamespaceWriter.CreateAsync(seller.Profile, _operatorAddr, ipfs, signer);
 
         var tombstone = new Tombstone { Sku = sku, At = DateTimeOffset.UtcNow.ToUnixTimeSeconds() };
         string json = JsonSerializer.Serialize(tombstone, JsonSerializerOptions.JsonLd);
 
-        var link = await writer.AddJsonAsync($"product/{sku}", json, seller.OwnerKey.PrivateKey);
+        var link = await writer.AddJsonAsync($"product/{sku}", json);
         TestContext.Out.WriteLine($"[tombstone] {seller.Alias} {sku} → CID={link.Cid}");
     }
 
     private async Task<string> PublishInvalidOfferAsync(IIpfsStore ipfs, Seller seller, string sku)
     {
-        var signer = new SafeLinkSigner(seller.SafeAddr, _chain);
+        var signer = new SafeSigner(seller.SafeAddr, new Nethereum.Signer.EthECKey(seller.OwnerKey.PrivateKey));
         var writer = await NamespaceWriter.CreateAsync(seller.Profile, _operatorAddr, ipfs, signer);
 
         // Deliberately invalid: price present but no priceCurrency (violates OffersRulesOk)
@@ -265,7 +265,7 @@ public sealed class MarketWithSafesEndToEndTests
         };
 
         string json = JsonSerializer.Serialize(invalid);
-        var link = await writer.AddJsonAsync($"product/{sku}", json, seller.OwnerKey.PrivateKey);
+        var link = await writer.AddJsonAsync($"product/{sku}", json);
 
         TestContext.Out.WriteLine($"[invalid] {seller.Alias} {sku} → CID={link.Cid}");
         return link.Cid;

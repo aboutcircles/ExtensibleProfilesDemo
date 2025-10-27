@@ -51,11 +51,13 @@ public class ProfileStoreTests
             }
         };
 
-        var (_, resultingCid) = await store.SaveAsync(p, _priv);
+        var key = new Nethereum.Signer.EthECKey(_priv);
+        var signer = new EoaSigner(key);
+        var (_, resultingCid) = await store.SaveAsync(p, signer);
 
         Assert.That(resultingCid, Is.Not.Null.And.Not.Empty);
 
-        var expectedAddr = new Nethereum.Signer.EthECKey(_priv).GetPublicAddress();
+        var expectedAddr = key.GetPublicAddress();
         regMock.Verify(r => r.UpdateProfileCidAsync(expectedAddr,
                 It.IsAny<byte[]>(),
                 It.IsAny<CancellationToken>()),
@@ -82,7 +84,8 @@ public class ProfileStoreTests
         var store = new ProfileStore(ipfs, regMock.Object);
         var profile = new Profile { Name = "Severe", Description = "digest‑check" };
 
-        (_, string cid) = await store.SaveAsync(profile, _priv);
+        var signer2 = new EoaSigner(new Nethereum.Signer.EthECKey(_priv));
+                (_, string cid) = await store.SaveAsync(profile, signer2);
 
         var expectedDigest = CidConverter.CidToDigest(cid);
 

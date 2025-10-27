@@ -176,28 +176,30 @@ public sealed class BasicAggregator
                         continue;
                     }
 
-                    byte[] canonical = CanonicalJson.CanonicaliseWithoutSignature(link);
-                    byte[] keccak = Sha3.Keccak256Bytes(canonical);
-                    string linkKeccakHex = "0x" + keccak.ToHex();
-
-                    string signer = link.SignerAddress.ToLowerInvariant();
-                    string nonce = link.Nonce.ToLowerInvariant();
-
-                    string scopeKey = $"{avatar}|{op}|{signer}";
-                    var scope = nonceScopes.GetOrAdd(scopeKey, _ => new HashSet<string>(StringComparer.Ordinal));
-
-                    bool seenBefore = scope.Contains(nonce);
-                    if (seenBefore)
+                    byte[] canonical;
+                    byte[] keccak;
+                    try
                     {
+                        canonical = CanonicalJson.CanonicaliseWithoutSignature(link);
+                        keccak = Sha3.Keccak256Bytes(canonical);
+                    }
+                    catch (Exception ex)
+                    {
+                        AddError(errors, avatar, ErrorStage.Verify, cur, ex);
                         continue;
                     }
 
-                    bool ok;
+                    string signer = link.SignerAddress.ToLowerInvariant();
+                    string nonce  = link.Nonce.ToLowerInvariant();
+                    string scopeKey = $"{avatar}|{op}|{signer}";
+                    var scope = nonceScopes.GetOrAdd(scopeKey, _ => new HashSet<string>(StringComparer.Ordinal));
+
+                    bool signatureOk;
                     try
                     {
                         byte[] sig = link.Signature.HexToByteArray();
-                        ok = await VerifyLinkSignatureAsync(keccak, canonical, signer, sig, ct);
-                        if (!ok)
+                        signatureOk = await VerifyLinkSignatureAsync(keccak, canonical, signer, sig, ct);
+                        if (!signatureOk)
                         {
                             continue;
                         }
@@ -208,13 +210,21 @@ public sealed class BasicAggregator
                         continue;
                     }
 
+                    bool seenBefore = scope.Contains(nonce);
+                    if (seenBefore)
+                    {
+                        continue;
+                    }
+
                     scope.Add(nonce);
+
                     items.Add(new LinkWithProvenance(
                         Avatar: avatar,
                         ChunkCid: cur,
                         IndexInChunk: i,
                         Link: link,
-                        LinkKeccak: linkKeccakHex));
+                        LinkKeccak: "0x" + keccak.ToHex()
+                    ));
                 }
 
                 cur = chunk.Prev;

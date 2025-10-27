@@ -31,8 +31,8 @@ public sealed record SchemaOrgOffer
     public required string Checkout { get; init; }
 
     /// <summary>Optional: POST endpoint to signal a buy intent and receive a token.</summary>
-    [JsonPropertyName("signalBuyIntent")]
-    public string? SignalBuyIntent { get; init; }
+    [JsonPropertyName("getOrderId")]
+    public string? GetOrderId { get; init; }
 
     /// <summary>Offer page.</summary>
     [JsonPropertyName("url")]

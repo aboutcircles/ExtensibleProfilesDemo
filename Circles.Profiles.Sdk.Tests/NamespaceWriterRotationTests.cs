@@ -7,14 +7,12 @@ namespace Circles.Profiles.Sdk.Tests;
 [TestFixture]
 public class NamespaceWriterRotationTests
 {
-    private readonly string _priv = Nethereum.Signer.EthECKey.GenerateKey().GetPrivateKey();
-
     [Test]
     public async Task Multiple_Rotations_Preserve_All_Links()
     {
         var profile = new Profile();
         var store   = new InMemoryIpfsStore();
-        var writer  = await NamespaceWriter.CreateAsync(profile, "dst", store, new EoaLinkSigner());
+        var writer  = await NamespaceWriter.CreateAsync(profile, "dst", store, new EoaSigner(Nethereum.Signer.EthECKey.GenerateKey()));
 
         const int total = Helpers.ChunkMaxLinks * 2 + 5;   // ≥ 2 rotations
         var logicalNames = new List<string>();
@@ -22,7 +20,7 @@ public class NamespaceWriterRotationTests
         for (int i = 0; i < total; i++)
         {
             string name = $"n{i:D3}";
-            await writer.AddJsonAsync(name, "{}", _priv);
+            await writer.AddJsonAsync(name, "{}");
             logicalNames.Add(name);
         }
 

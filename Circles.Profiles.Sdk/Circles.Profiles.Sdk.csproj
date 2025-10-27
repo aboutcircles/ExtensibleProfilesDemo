@@ -15,8 +15,4 @@
       <ProjectReference Include="..\Circles.Profiles.Interfaces\Circles.Profiles.Interfaces.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Compile Remove="EoaSigner.cs" />
-    </ItemGroup>
-
 </Project>

@@ -60,7 +60,6 @@ public class RealSafeEndToEndTests
     public async Task PingPong_MultiRound_EndToEnd()
     {
         await using var ipfs = new IpfsRpcApiStore(_ipfsRpcApiUrl, _ipfsRpcApiBearer);
-        var chainApi = new EthereumChainApi(_web3, 100);
 
         const int rounds = 3;
         Console.WriteLine($"[E2E] Writing {rounds} rounds, all sender→recipient pairs");
@@ -72,7 +71,8 @@ public class RealSafeEndToEndTests
             {
                 foreach (var recipient in _actors.Where(a => a != sender))
                 {
-                    var signer = new SafeLinkSigner(sender.SafeAddr, chainApi);
+                    var signer = new SafeSigner(sender.SafeAddr,
+                        new Nethereum.Signer.EthECKey(sender.OwnerKey.PrivateKey));
                     var writer = await NamespaceWriter.CreateAsync(
                         sender.Profile, recipient.SafeAddr, ipfs, signer);
 
@@ -81,7 +81,7 @@ public class RealSafeEndToEndTests
                         new { txt = $"round {r} – hi from {sender.Alias} to {recipient.Alias}" });
 
                     var link = await writer.AddJsonAsync(
-                        logicalName, json, sender.OwnerKey.PrivateKey);
+                        logicalName, json);
 
                     Console.WriteLine($"[round {r}] {sender.Alias} → {recipient.Alias}  {logicalName}  CID={link.Cid}");
                 }

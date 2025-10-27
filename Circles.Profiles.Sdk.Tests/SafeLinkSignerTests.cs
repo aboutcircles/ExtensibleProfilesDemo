@@ -4,31 +4,27 @@ using Circles.Profiles.Sdk.Utils;
 using Moq;
 using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Signer;
-using Nethereum.Web3;
-using Nethereum.Web3.Accounts;
 
 namespace Circles.Profiles.Sdk.Tests;
 
 [TestFixture]
-public class SafeLinkSignerTests
+public class SafeSignerTests
 {
     [Test]
     public async Task Sign_Uses_Safe_Address_And_Verifies()
     {
-        string ownerPriv = EthECKey.GenerateKey().GetPrivateKey();
+        var ownerKey = EthECKey.GenerateKey();
         string safeAddr  = "0x1234567890aBcDEF1234567890abCDef12345678";
 
-        Account account = new Account(ownerPriv);
-        Web3 web3 = new Web3(account, "https://rpc.aboutcircles.com");
-        IChainApi chainApi = new EthereumChainApi(web3, 100);
-        
-        var signer = new SafeLinkSigner(safeAddr, chainApi);
-        var link   = new CustomDataLink { Name = "hello", Cid = "CID-x" };
-        var signed = signer.Sign(link, ownerPriv);
+        ISigner signer = new SafeSigner(safeAddr, ownerKey);
+        var ipfs = new Mocks.InMemoryIpfsStore();
+        var prof = new Models.Core.Profile();
+        var writer = await NamespaceWriter.CreateAsync(prof, "any", ipfs, signer);
+        var signed = await writer.AttachExistingCidAsync("hello", "CID-x");
 
-        Assert.That(signed.SignerAddress, Is.EqualTo(safeAddr));
+        Assert.That(signed.SignerAddress, Is.EqualTo(safeAddr).IgnoreCase);
 
-        /* verify off‑chain via DefaultSignatureVerifier with mocked 1271 happy path */
+        /* verify off-chain via DefaultSignatureVerifier with mocked 1271 happy path */
         var chain = new Mock<IChainApi>();
         chain.Setup(c => c.GetCodeAsync(safeAddr, It.IsAny<CancellationToken>()))
             .ReturnsAsync("0x60006000");

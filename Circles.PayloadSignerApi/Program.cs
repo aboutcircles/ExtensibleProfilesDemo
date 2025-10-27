@@ -39,7 +39,6 @@ builder.Services.Configure<JsonOptions>(o =>
 
 // DI: pinning and signing helpers
 builder.Services.AddSingleton<IIpfsStore>(_ => new IpfsRpcApiStore());
-builder.Services.AddSingleton<ILinkSigner, EoaLinkSigner>();
 
 // Pluggable validation
 builder.Services.AddSingleton<IPayloadValidator, JsonSyntaxValidator>();
@@ -51,7 +50,7 @@ Console.WriteLine("[BuyIntent] Using in-memory store (non-persistent).");
 var app = builder.Build();
 
 // --- Signing endpoint ---
-app.MapPost("/sign", async (HttpRequest req, IIpfsStore ipfs, ILinkSigner signer, IPayloadValidator validator) =>
+app.MapPost("/sign", async (HttpRequest req, IIpfsStore ipfs, IPayloadValidator validator) =>
 {
     // Ensure private key exists
     string? key = Environment.GetEnvironmentVariable("PRIVATE_KEY");
@@ -98,17 +97,16 @@ app.MapPost("/sign", async (HttpRequest req, IIpfsStore ipfs, ILinkSigner signer
         Encrypted = false
     };
 
-    CustomDataLink signed;
     try
     {
-        signed = signer.Sign(draft, key);
+        var signer = new EoaSigner(new Nethereum.Signer.EthECKey(key));
+        var signed = await LinkSigning.SignAsync(draft, signer, req.HttpContext.RequestAborted);
+        return Results.Json(signed);
     }
     catch (Exception ex)
     {
         return Results.Problem($"Failed to sign payload: {ex.Message}", statusCode: 500);
     }
-
-    return Results.Json(signed);
 });
 
 // --- Buy intent endpoints ---

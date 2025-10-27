@@ -11,25 +11,23 @@ public interface INamespaceWriter
 {
     /* single-link helpers --------------------------------------------------- */
 
-    Task<CustomDataLink> AddJsonAsync(string logicalName,
+    Task<CustomDataLink> AddJsonAsync(
+        string logicalName,
         string json,
-        string signerPrivKey,
         CancellationToken ct = default);
 
-    Task<CustomDataLink> AttachExistingCidAsync(string logicalName,
+    Task<CustomDataLink> AttachExistingCidAsync(
+        string logicalName,
         string cid,
-        string signerPrivKey,
         CancellationToken ct = default);
 
     /* bulk helpers – flushed atomically (one chunk rotation at most) -------- */
 
     Task<IReadOnlyList<CustomDataLink>> AddJsonBatchAsync(
         IEnumerable<(string name, string json)> items,
-        string signerPrivKey,
         CancellationToken ct = default);
 
     Task<IReadOnlyList<CustomDataLink>> AttachCidBatchAsync(
         IEnumerable<(string name, string cid)> items,
-        string signerPrivKey,
         CancellationToken ct = default);
 }

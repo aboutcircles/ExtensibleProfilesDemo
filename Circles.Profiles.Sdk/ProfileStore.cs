@@ -2,7 +2,6 @@ using System.Text.Json;
 using Circles.Profiles.Interfaces;
 using Circles.Profiles.Models.Core;
 using Circles.Profiles.Sdk.Utils;
-using Nethereum.Signer;
 
 namespace Circles.Profiles.Sdk;
 
@@ -32,9 +31,11 @@ public sealed class ProfileStore : IProfileStore
 
     public async Task<(Profile prof, string cid)> SaveAsync(
         Profile profile,
-        string signerPrivKey,
+        ISigner signer,
         CancellationToken ct = default)
     {
+        if (signer is null) { throw new ArgumentNullException(nameof(signer)); }
+
         /* ---------- 1) pin profile JSON ---------- */
         var json = JsonSerializer.Serialize(profile, Models.JsonSerializerOptions.JsonLd);
         var cid = await _ipfs.AddStringAsync(json, pin: true, ct);
@@ -42,10 +43,7 @@ public sealed class ProfileStore : IProfileStore
         /* ---------- 2) registry update ---------- */
         var digest32 = CidConverter.CidToDigest(cid);
 
-        // derive avatar address from the *private* key
-        var signerAddress = new EthECKey(signerPrivKey).GetPublicAddress();
-
-        await _registry.UpdateProfileCidAsync(signerAddress, digest32, ct);
+        await _registry.UpdateProfileCidAsync(signer.Address, digest32, ct);
 
         return (profile, cid);
     }

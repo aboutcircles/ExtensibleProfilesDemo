@@ -1,6 +1,7 @@
 using Circles.Profiles.Interfaces;
 using Circles.Profiles.Sdk;
-using Nethereum.Web3;
+using Circles.Profiles.Models.Core;
+using Nethereum.Signer;
 using System.Numerics;
 using System.Threading.Tasks;
 
@@ -36,16 +37,11 @@ public class SignatureService
         string walletAddress, 
         bool isSafe)
     {
-        if (isSafe)
-        {
-            var safeSigner = new SafeLinkSigner(walletAddress, _chainApi);
-            return safeSigner.Sign(draft, privateKey);
-        }
-        else
-        {
-            var defaultSigner = new DefaultLinkSigner();
-            return defaultSigner.Sign(draft, privateKey);
-        }
+        ISigner signer = isSafe
+            ? new SafeSigner(walletAddress, new EthECKey(privateKey))
+            : new EoaSigner(new EthECKey(privateKey));
+
+        return await LinkSigning.SignAsync(draft, signer);
     }
 
     /// <summary>
@@ -56,37 +52,19 @@ public class SignatureService
     /// <param name="walletAddress">Address of the wallet (EOA or Safe)</param>
     /// <param name="isSafe">Whether the wallet is a Safe</param>
     /// <returns>The transaction hash</returns>
-    public async Task<string> UpdateProfileAsync(
-        Profiles.Sdk.Profile profile, 
+    public async Task<string?> UpdateProfileAsync(
+        Profile profile, 
         string privateKey, 
         string walletAddress, 
         bool isSafe)
     {
         var store = new ProfileStore(_ipfsStore, _nameRegistry);
+        ISigner signer = isSafe
+            ? new SafeSigner(walletAddress, new EthECKey(privateKey))
+            : new EoaSigner(new EthECKey(privateKey));
 
-        if (isSafe)
-        {
-            // For Safe wallets, we need to use GnosisSafeExecutor to send the transaction
-            var web3 = new Web3(privateKey);
-            var safeExecutor = new GnosisSafeExecutor(web3, walletAddress);
-            
-            // First, we pin the profile to IPFS and get the CID
-            var profileCid = await store.PinProfileAsync(profile);
-            
-            // Then, we create the transaction data to update the registry
-            var registryData = _nameRegistry.CreateUpdateMetadataDigestCalldata(walletAddress, profileCid);
-            
-            // Finally, we execute the transaction through the Safe
-            return await safeExecutor.ExecTransactionAsync(
-                _nameRegistry.ContractAddress,
-                registryData,
-                BigInteger.Zero);
-        }
-        else
-        {
-            // For EOA wallets, we can use the ProfileStore directly
-            return await store.SaveAsync(profile, privateKey);
-        }
+        var (_, cid) = await store.SaveAsync(profile, signer);
+        return cid;
     }
 
     /// <summary>

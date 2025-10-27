@@ -47,6 +47,28 @@ public sealed class CatalogReducer
             using (pdoc)
             {
                 var root = pdoc.RootElement;
+
+                // Defensive early validation for Product payloads to ensure errors surface
+                string pType = root.TryGetProperty("@type", out var tEl) ? (tEl.GetString() ?? string.Empty) : string.Empty;
+                if (string.Equals(pType, "Product", StringComparison.Ordinal))
+                {
+                    if (!HasRequiredProductContexts(root))
+                    {
+                        BasicAggregator.AddError(errors, it.Avatar, "payload", cid, "Product missing required @context entries");
+                        continue;
+                    }
+                    if (!ImageShapesOk(root, out var imgErr0))
+                    {
+                        BasicAggregator.AddError(errors, it.Avatar, "payload", cid, imgErr0 ?? "Invalid image entry");
+                        continue;
+                    }
+                    if (!OffersRulesOk(root, out var offerErr0))
+                    {
+                        BasicAggregator.AddError(errors, it.Avatar, "payload", cid, offerErr0 ?? "Invalid offer(s)");
+                        continue;
+                    }
+                }
+
                 var v = ClassifyPayload(root);
 
                 if (v.Type == PayloadType.Unknown)
@@ -208,6 +230,18 @@ public sealed class CatalogReducer
     {
         error = null;
         if (!root.TryGetProperty("image", out var images)) return true;
+
+        // Allow either a single string/object or an array
+        if (images.ValueKind == JsonValueKind.String)
+        {
+            string? s = images.GetString();
+            if (string.IsNullOrWhiteSpace(s) || s.StartsWith("/") || !Uri.TryCreate(s, UriKind.Absolute, out var u) || !u.IsAbsoluteUri)
+            {
+                error = "image entries must be absolute URIs."; return false;
+            }
+            return true;
+        }
+
         if (images.ValueKind != JsonValueKind.Array) return true;
 
         foreach (var el in images.EnumerateArray())
@@ -215,7 +249,7 @@ public sealed class CatalogReducer
             if (el.ValueKind == JsonValueKind.String)
             {
                 var s = el.GetString();
-                if (string.IsNullOrWhiteSpace(s) || !Uri.TryCreate(s, UriKind.Absolute, out _))
+                if (string.IsNullOrWhiteSpace(s) || s.StartsWith("/") || !Uri.TryCreate(s, UriKind.Absolute, out var u) || !u.IsAbsoluteUri)
                 {
                     error = "image entries must be absolute URIs."; return false;
                 }
@@ -241,44 +275,61 @@ public sealed class CatalogReducer
     {
         error = null;
         if (!root.TryGetProperty("offers", out var offers)) return true;
+
+        // Accept either a single object or an array of objects
+        if (offers.ValueKind == JsonValueKind.Object)
+        {
+            return OfferOk(offers, out error);
+        }
+
         if (offers.ValueKind != JsonValueKind.Array) return true;
 
         foreach (var el in offers.EnumerateArray())
         {
             if (el.ValueKind != JsonValueKind.Object) continue;
+            if (!OfferOk(el, out error)) return false;
+        }
+        return true;
+    }
 
-            bool hasPrice = el.TryGetProperty("price", out _);
-            if (hasPrice)
+    private static bool OfferOk(JsonElement el, out string? error)
+    {
+        error = null;
+        bool hasPrice = el.TryGetProperty("price", out _);
+        if (hasPrice)
+        {
+            bool hasCurrency = el.TryGetProperty("priceCurrency", out var pc) && pc.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(pc.GetString());
+            if (!hasCurrency) { error = "Offer has a price but is missing priceCurrency (ISO-4217)."; return false; }
+
+            string cur = pc.GetString()!;
+            if (!(cur.Length == 3 && cur.All(c => c >= 'A' && c <= 'Z')))
             {
-                bool hasCurrency = el.TryGetProperty("priceCurrency", out var pc) && pc.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(pc.GetString());
-                if (!hasCurrency) { error = "Offer has a price but is missing priceCurrency (ISO-4217)."; return false; }
-
-                string cur = pc.GetString()!;
-                if (!(cur.Length == 3 && cur.All(c => c >= 'A' && c <= 'Z')))
-                {
-                    error = "Offer priceCurrency should be a 3-letter ISO-4217 code (e.g., EUR, USD)."; return false;
-                }
-            }
-
-            bool hasCheckout = el.TryGetProperty("checkout", out var chk) && chk.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(chk.GetString());
-            if (!hasCheckout) { error = "Offer.checkout is required and must be a non-empty absolute URI."; return false; }
-            if (!Uri.TryCreate(chk.GetString()!, UriKind.Absolute, out _)) { error = "Offer.checkout must be an absolute URI."; return false; }
-
-            if (el.TryGetProperty("availabilityFeed", out var af) && af.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(af.GetString()))
-            {
-                if (!Uri.TryCreate(af.GetString()!, UriKind.Absolute, out _)) { error = "Offer.availabilityFeed must be an absolute URI."; return false; }
-            }
-
-            if (el.TryGetProperty("inventoryFeed", out var inf) && inf.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(inf.GetString()))
-            {
-                if (!Uri.TryCreate(inf.GetString()!, UriKind.Absolute, out _)) { error = "Offer.inventoryFeed must be an absolute URI."; return false; }
-            }
-
-            if (el.TryGetProperty("availability", out var av) && av.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(av.GetString()))
-            {
-                if (!Uri.TryCreate(av.GetString()!, UriKind.Absolute, out _)) { error = "Offer.availability must be a schema IRI (absolute URI)."; return false; }
+                error = "Offer priceCurrency should be a 3-letter ISO-4217 code (e.g., EUR, USD)."; return false;
             }
         }
+
+        bool hasCheckout = el.TryGetProperty("checkout", out var chk) && chk.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(chk.GetString());
+        if (!hasCheckout) { error = "Offer.checkout is required and must be a non-empty absolute URI."; return false; }
+        {
+                    var chkStr = chk.GetString()!;
+                    if (!Uri.TryCreate(chkStr, UriKind.Absolute, out _) || chkStr.StartsWith("/")) { error = "Offer.checkout must be an absolute URI."; return false; }
+                }
+
+        if (el.TryGetProperty("availabilityFeed", out var af) && af.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(af.GetString()))
+        {
+            if (!Uri.TryCreate(af.GetString()!, UriKind.Absolute, out _)) { error = "Offer.availabilityFeed must be an absolute URI."; return false; }
+        }
+
+        if (el.TryGetProperty("inventoryFeed", out var inf) && inf.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(inf.GetString()))
+        {
+            if (!Uri.TryCreate(inf.GetString()!, UriKind.Absolute, out _)) { error = "Offer.inventoryFeed must be an absolute URI."; return false; }
+        }
+
+        if (el.TryGetProperty("availability", out var av) && av.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(av.GetString()))
+        {
+            if (!Uri.TryCreate(av.GetString()!, UriKind.Absolute, out _)) { error = "Offer.availability must be a schema IRI (absolute URI)."; return false; }
+        }
+
         return true;
     }
 
