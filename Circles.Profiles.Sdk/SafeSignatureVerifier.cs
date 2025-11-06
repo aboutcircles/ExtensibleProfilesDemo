@@ -3,11 +3,11 @@ using Circles.Profiles.Interfaces;
 namespace Circles.Profiles.Sdk
 {
     /// <summary>
-    /// ERC‑1271 verifier for Gnosis Safe (v1.4.1).
-    /// Calls isValidSignature on the SAFE address (its fallback delegates to the CompatibilityFallbackHandler).
-    /// Semantics:
-    ///   • RAW preimage bytes → ERC‑1271(bytes, bytes)  ← canonical Safe message path
-    ///   • 32‑byte input      → ERC‑1271(bytes32, bytes) (wraps to bytes via abi.encode(hash); rarely useful for us)
+    /// ERC-1271 verifier for Gnosis Safe (v1.4.1).
+    /// We only support the canonical Safe path:
+    ///   • RAW preimage bytes → ERC-1271(bytes, bytes)
+    /// The Safe’s CompatibilityFallbackHandler checks the EIP-712 SafeMessage
+    /// domain (chainId + verifyingContract) against the signed payload bytes.
     /// </summary>
     public sealed class SafeSignatureVerifier
     {
@@ -19,129 +19,34 @@ namespace Circles.Profiles.Sdk
         }
 
         /// <summary>
-        /// If <paramref name="dataOrHash"/> is 32 bytes, tries the bytes32 overload (which wraps to bytes with abi.encode(hash)).
-        /// If it's not 32 bytes, treats it as RAW payload bytes and calls the bytes overload (canonical Safe path).
+        /// Preferred Safe path: ERC-1271(bytes,bytes) over the raw canonical payload bytes.
+        /// Forces <c>eth_call.from = &lt;safe&gt;</c> for Safe v1.4.1.
         /// </summary>
-        public async Task<bool> VerifyAsync(
-            byte[] dataOrHash,
-            string safeAddress,
+        public async Task<bool> Verify1271WithBytesAsync(
+            string contract,
+            byte[] payloadBytes,
             byte[] signature,
             CancellationToken ct = default)
         {
-            ArgumentNullException.ThrowIfNull(dataOrHash);
+            ArgumentNullException.ThrowIfNull(payloadBytes);
             ArgumentNullException.ThrowIfNull(signature);
+            if (string.IsNullOrWhiteSpace(contract)) { throw new ArgumentException(nameof(contract)); }
 
-            bool emptyAddr = string.IsNullOrWhiteSpace(safeAddress);
-            if (emptyAddr)
-            {
-                throw new ArgumentException("Empty address", nameof(safeAddress));
-            }
+            var res = await _chain.CallIsValidSignatureAsync(
+                toAddress: contract,
+                abi: EthereumChainApi.ERC1271_BYTES_ABI,
+                dataOrHash: payloadBytes,
+                signature: signature,
+                callFrom: contract, // Safe v1.4.1 prefers msg.sender = safe
+                ct: ct).ConfigureAwait(false);
 
-            bool isHash32 = dataOrHash.Length == 32;
-            if (isHash32)
-            {
-                // First try the bytes32 overload
-                bool ok32 = await Try1271Async(
-                    EthereumChainApi.ERC1271_BYTES32_ABI,
-                    EthereumChainApi.ERC1271_MAGIC_VALUE_BYTES32,
-                    safeAddress,
-                    dataOrHash,
-                    signature,
-                    ct).ConfigureAwait(false);
-
-                if (ok32)
-                {
-                    return true;
-                }
-
-                // Fallback: some wallets only implement the bytes overload reliably.
-                return await Try1271Async(
-                    EthereumChainApi.ERC1271_BYTES_ABI,
-                    EthereumChainApi.ERC1271_MAGIC_VALUE_BYTES,
-                    safeAddress,
-                    dataOrHash,
-                    signature,
-                    ct).ConfigureAwait(false);
-            }
-
-            return await Try1271Async(
-                EthereumChainApi.ERC1271_BYTES_ABI,
-                EthereumChainApi.ERC1271_MAGIC_VALUE_BYTES,
-                safeAddress,
-                dataOrHash,
-                signature,
-                ct).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Explicit bytes path (preferred for Safe messages).
-        /// </summary>
-        public Task<bool> Verify1271WithBytesAsync(
-            string safeAddress,
-            byte[] data,
-            byte[] signature,
-            CancellationToken ct = default) =>
-            Try1271Async(
-                EthereumChainApi.ERC1271_BYTES_ABI,
-                EthereumChainApi.ERC1271_MAGIC_VALUE_BYTES,
-                safeAddress,
-                data,
-                signature,
-                ct);
-
-        private async Task<bool> Try1271Async(
-            string abi,
-            byte[] magic,
-            string contract,
-            byte[] dataOrHash,
-            byte[] sig,
-            CancellationToken ct)
-        {
-            var resp = await _chain.CallIsValidSignatureAsync(contract, abi, dataOrHash, sig, ct)
-                .ConfigureAwait(false);
-
-            bool returnedMagic =
-                !resp.Reverted &&
-                resp.ReturnData is { Length: >= 4 } &&
-                resp.ReturnData.Take(4).SequenceEqual(magic);
-
-            if (returnedMagic)
+            if (!res.Reverted && res.ReturnData.AsSpan().Length >= 4 &&
+                res.ReturnData.AsSpan(0, 4).SequenceEqual(EthereumChainApi.ERC1271_MAGIC_VALUE_BYTES))
             {
                 return true;
             }
 
-            bool looksEcdsa65 = sig.Length == 65;
-            if (!looksEcdsa65)
-            {
-                return false;
-            }
-
-            var toggled = (byte[])sig.Clone();
-            bool vIs27or28 = toggled[64] is 27 or 28;
-            bool vIs31or32 = toggled[64] is 31 or 32;
-
-            if (vIs27or28)
-            {
-                toggled[64] += 4;
-            }
-            else if (vIs31or32)
-            {
-                toggled[64] -= 4;
-            }
-            else
-            {
-                return false;
-            }
-
-            var resp2 = await _chain.CallIsValidSignatureAsync(contract, abi, dataOrHash, toggled, ct)
-                .ConfigureAwait(false);
-
-            bool returnedMagic2 =
-                !resp2.Reverted &&
-                resp2.ReturnData is { Length: >= 4 } &&
-                resp2.ReturnData.Take(4).SequenceEqual(magic);
-
-            return returnedMagic2;
+            return false;
         }
     }
 }

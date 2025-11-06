@@ -85,30 +85,6 @@ public sealed class SafeSignature_StandaloneTests
         Assert.That(ok, Is.True, "Safe fallback → handler should accept the owner EOA signature for raw bytes");
     }
 
-    [Test]
-    public async Task SafeSignatureVerifier_Bytes_succeeds()
-    {
-        var safeVerifier = new SafeSignatureVerifier(_chain);
-        bool ok = await safeVerifier.VerifyAsync(_payloadBytes, _safe, _signature);
-        Assert.That(ok, Is.True);
-    }
-
-    [Test]
-    public async Task Bytes32_with_PayloadKeccak_fails()
-    {
-        var safeVerifier = new SafeSignatureVerifier(_chain);
-        bool ok = await safeVerifier.VerifyAsync(_payloadKeccak, _safe, _signature); // 32-byte input → bytes32 path
-        Assert.That(ok, Is.False);
-    }
-
-    [Test]
-    public async Task Bytes32_with_SafeMessageHash_fails()
-    {
-        var safeVerifier = new SafeSignatureVerifier(_chain);
-        bool ok = await safeVerifier.VerifyAsync(_safeMessageHash, _safe, _signature); // 32-byte input → bytes32 path
-        Assert.That(ok, Is.False);
-    }
-
     private async Task<bool> Call1271MagicAsync(
         string to,
         string abi,
@@ -118,9 +94,7 @@ public sealed class SafeSignature_StandaloneTests
         var res = await _chain.CallIsValidSignatureAsync(to, abi, dataOrHash, signature);
         bool looksMagic = !res.Reverted && res.ReturnData is { Length: >= 4 } && (
             (ReferenceEquals(abi, EthereumChainApi.ERC1271_BYTES_ABI) &&
-             res.ReturnData.SequenceEqual(EthereumChainApi.ERC1271_MAGIC_VALUE_BYTES)) ||
-            (ReferenceEquals(abi, EthereumChainApi.ERC1271_BYTES32_ABI) &&
-             res.ReturnData.SequenceEqual(EthereumChainApi.ERC1271_MAGIC_VALUE_BYTES32))
+             res.ReturnData.SequenceEqual(EthereumChainApi.ERC1271_MAGIC_VALUE_BYTES))
         );
         return looksMagic;
     }

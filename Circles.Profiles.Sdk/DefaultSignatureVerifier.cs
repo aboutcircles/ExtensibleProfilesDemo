@@ -1,3 +1,5 @@
+// Circles.Profiles.Sdk/DefaultSignatureVerifier.cs
+
 using System.Collections.Concurrent;
 using Circles.Profiles.Interfaces;
 
@@ -21,6 +23,12 @@ public sealed class DefaultSignatureVerifier : ISignatureVerifier, ISafeBytesVer
         _safe = new SafeSignatureVerifier(chain);
     }
 
+    /// <summary>
+    /// Verifies a 32-byte Keccak hash. For EOAs this does a straight ECDSA check.
+    /// For contracts (e.g., Safes) this intentionally returns <c>false</c> so that
+    /// callers who have the raw payload bytes can invoke
+    /// <see cref="Verify1271WithBytesAsync(byte[], string, byte[], CancellationToken)"/>.
+    /// </summary>
     public async Task<bool> VerifyAsync(
         byte[] hash, string signerAddress, byte[] signature, CancellationToken ct = default)
     {
@@ -37,9 +45,11 @@ public sealed class DefaultSignatureVerifier : ISignatureVerifier, ISafeBytesVer
         if (isContract)
         {
             // Touch the chain id to make it part of verification context for contract wallets
-            // (ensures callers provide chain context and aligns with test expectations)
             var _ = _chain.Id;
-            return await _safe.VerifyAsync(hash, signerAddress, signature, ct).ConfigureAwait(false);
+
+            // Do NOT attempt ERC-1271(bytes32,bytes). The canonical Safe path is bytes/bytes.
+            // We return false here to let the caller try Verify1271WithBytesAsync over the raw payload.
+            return false;
         }
 
         return await _eoa.VerifyAsync(hash, signerAddress, signature, ct).ConfigureAwait(false);
@@ -57,9 +67,9 @@ public sealed class DefaultSignatureVerifier : ISignatureVerifier, ISafeBytesVer
             throw new ArgumentException("Empty address", nameof(signerAddress));
         }
 
-        // 1) Try ERC‑1271 "bytes" on the signer unconditionally.
+        // 1) Try ERC-1271 "bytes" on the signer unconditionally.
         //    If the signer is a Safe/contract, this returns the magic value.
-        //    If it's an EOA, the call just returns non‑magic / empty and we continue.
+        //    If it's an EOA, the call just returns non-magic / empty and we continue.
         bool ok1271Bytes = await _safe.Verify1271WithBytesAsync(
             signerAddress, payloadBytes, signature, ct).ConfigureAwait(false);
 
