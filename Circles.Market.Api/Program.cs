@@ -44,7 +44,8 @@ builder.Services.Decorate<IIpfsStore, CachingIpfsStore>();
 
 // Chain + registry
 builder.Services.AddSingleton<INameRegistry>(_ => new NameRegistry(chainRpcUrl));
-builder.Services.AddSingleton<IChainApi>(_ => new EthereumChainApi(new Web3(chainRpcUrl), Helpers.DefaultChainId));
+builder.Services.AddSingleton<IChainApi>(_ =>
+    new EthereumChainApi(new Web3(chainRpcUrl), Circles.Profiles.Sdk.Helpers.DefaultChainId));
 
 // Signature verification:
 // Register one DefaultSignatureVerifier instance and expose it as both interfaces.
@@ -67,9 +68,6 @@ builder.Services.AddSingleton<Circles.Profiles.Aggregation.BasicAggregator>();
 builder.Services.AddSingleton<CatalogReducer>();
 builder.Services.AddSingleton<OperatorCatalogService>();
 
-// Optional writes support
-builder.Services.AddSingleton<IMarketPublisher, MarketPublisher>();
-
 // OpenAPI
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
@@ -83,7 +81,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// CORS: allow all origins/headers/methods (for demo/tooling usage) with exposed pagination headers
+// CORS: allow all origins/headers/methods (for demo/tooling) with exposed pagination headers
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -132,5 +130,6 @@ app.MapGet("/api/operator/{op}/catalog",
 
 app.MapCartApi();
 app.MapPinApi();
+app.MapCanonicalizeApi();
 
 app.Run();

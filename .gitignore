@@ -2,6 +2,8 @@
 **/bin/
 **/obj/
 
+.env
+
 # Generated assembly info files
 **/*AssemblyInfo.cs
 

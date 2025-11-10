@@ -26,8 +26,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.PayloadSignerApi", 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{2E410937-A614-4FE7-80C6-B721F2BE158D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profile.UI", "Circles.Profile.UI\Circles.Profile.UI.csproj", "{10839E09-11C5-47BB-A69C-04A2E8E51FD0}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Safe", "Circles.Profiles.Safe\Circles.Profiles.Safe.csproj", "{0BADDD7A-3350-49E2-9300-D37999021839}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Tool", "Circles.Profiles.Tool\Circles.Profiles.Tool.csproj", "{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A}"
@@ -39,6 +37,12 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Aggregation", "Circles.Profiles.Aggregation\Circles.Profiles.Aggregation.csproj", "{328C3C65-FC81-4BFF-90A4-8C57170EEA30}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Circles.Profiles.Market", "Circles.Profiles.Market\Circles.Profiles.Market.csproj", "{10AC9CB1-4F09-4918-A792-11A866F1FA3B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docker", "Docker", "{736BE308-C541-43AF-9372-A8BFBBCD975F}"
+	ProjectSection(SolutionItems) = preProject
+		api.Dockerfile = api.Dockerfile
+		docker-compose.yml = docker-compose.yml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -66,10 +70,6 @@ Global
 		{5E09C14D-6E1B-4976-970A-5A463DA5C4B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5E09C14D-6E1B-4976-970A-5A463DA5C4B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5E09C14D-6E1B-4976-970A-5A463DA5C4B8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{10839E09-11C5-47BB-A69C-04A2E8E51FD0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{10839E09-11C5-47BB-A69C-04A2E8E51FD0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{10839E09-11C5-47BB-A69C-04A2E8E51FD0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{10839E09-11C5-47BB-A69C-04A2E8E51FD0}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0BADDD7A-3350-49E2-9300-D37999021839}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0BADDD7A-3350-49E2-9300-D37999021839}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0BADDD7A-3350-49E2-9300-D37999021839}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -96,7 +96,6 @@ Global
 		{10AC9CB1-4F09-4918-A792-11A866F1FA3B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{10839E09-11C5-47BB-A69C-04A2E8E51FD0} = {2E410937-A614-4FE7-80C6-B721F2BE158D}
 		{0BADDD7A-3350-49E2-9300-D37999021839} = {2E410937-A614-4FE7-80C6-B721F2BE158D}
 		{FFD57920-95A8-4B96-A9E5-8D291F5F2A4A} = {2E410937-A614-4FE7-80C6-B721F2BE158D}
 		{1CCC174B-0B5E-4E03-B96E-C3D1A0C2E995} = {1AA40F08-5937-483C-A575-133399170FF3}
