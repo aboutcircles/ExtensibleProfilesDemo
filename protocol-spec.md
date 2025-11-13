@@ -12,10 +12,13 @@ set of **append‑only namespaces** that point to signed content on IPFS. A clie
 Storage is IPFS. Authenticity is cryptographic (EOA or ERC‑1271). The registry stores the SHA‑256 **digest** of the
 profile JSON.
 
-**JSON‑LD framing (normative):** All protocol objects defined in this spec — **Profile**, **NameIndexDoc**, **NamespaceChunk**, and **CustomDataLink** — are **JSON‑LD** and MUST include an `@context` and `@type` matching the object kind:
+**JSON‑LD framing (normative):** All protocol objects defined in this spec — **Profile**, **NameIndexDoc**, *
+*NamespaceChunk**, and **CustomDataLink** — are **JSON‑LD** and MUST include an `@context` and `@type` matching the
+object kind:
 
 * Profile: `@context = "https://aboutcircles.com/contexts/circles‑profile/"`, `@type = "Profile"`
-* NameIndexDoc / NamespaceChunk: `@context = "https://aboutcircles.com/contexts/circles‑namespace/"`, `@type ∈ {"NameIndexDoc","NamespaceChunk"}`
+* NameIndexDoc / NamespaceChunk: `@context = "https://aboutcircles.com/contexts/circles‑namespace/"`,
+  `@type ∈ {"NameIndexDoc","NamespaceChunk"}`
 * CustomDataLink: `@context = "https://aboutcircles.com/contexts/circles‑linking/"`, `@type = "CustomDataLink"`
 
 The shared JSON‑LD terms live under:
@@ -27,7 +30,8 @@ The shared JSON‑LD terms live under:
 
 * **Avatar** — an Ethereum address (EOA or contract) owning a profile.
 * **Profile** — JSON‑LD stored on IPFS, referenced on‑chain by its digest.
-* **Namespace** — `(ownerAvatar, namespaceKey)` pair; append‑only log of *links*.
+* **Namespace** — `(ownerAvatar, namespaceKey)` pair; append‑only log of *links*. Here `namespaceKey` is the recipient
+  address (EOA or contract) for which `ownerAvatar` is writing links.
 * **Link** — signed envelope pointing to a payload CID with replay guards.
 * **Registry** — Solidity contract mapping `avatar → bytes32 digest` (current profile).
 * **Client** — dApp/wallet/app speaking this protocol.
@@ -46,12 +50,16 @@ The shared JSON‑LD terms live under:
 When the protocol compares addresses, use case‑insensitive semantics on input, but **writers MUST emit lowercase** in
 all JSON fields governed by this spec. In JSON‑LD, these fields are mapped via the context to the `ethAddress` type.
 
-### 2.2 CIDs (CIDv0 only)
+### 2.2 CIDs
 
-* **Form:** base58btc, 46 characters, starts with `Qm`.
-* **Mapping to digest:** CIDv0 = multihash `0x12 0x20 || <32‑byte sha2‑256 digest>` (function 0x12, length 0x20),
-  base58btc‑encoded.
-* **Digest32 length:** exactly 32 bytes.
+* **Control‑plane objects (profile, index, chunk):** CIDs MUST be **CIDv0**:
+
+    * **Form:** base58btc, 46 characters, starts with `Qm`.
+    * **Mapping to digest:** CIDv0 = multihash `0x12 0x20 || <32‑byte sha2‑256 digest>` (function 0x12, length 0x20),
+      base58btc‑encoded.
+    * **Digest32 length:** exactly 32 bytes.
+* **Payload CIDs:** `CustomDataLink.cid` MAY use any CID version and multicodec supported by the implementation. To
+  remain maximally compatible with the current reference implementation, payload CIDs SHOULD be CIDv0.
 
 ### 2.3 Hex & sizes
 
@@ -63,7 +71,8 @@ all JSON fields governed by this spec. In JSON‑LD, these fields are mapped via
 
 ### 2.4 Time
 
-* Unix seconds since epoch (UTC), 64‑bit signed integer range. In JSON‑LD, such fields are mapped via the context to the `unixSeconds` type.
+* Unix seconds since epoch (UTC), 64‑bit signed integer range. In JSON‑LD, such fields are mapped via the context to the
+  `unixSeconds` type.
 
 ---
 
@@ -212,22 +221,28 @@ Before hashing/signing a link, compute **canonical JSON bytes** of the link **wi
 
 Rules (normative):
 
-1. Serialize the link to JSON‑LD; parse to a DOM and re‑emit canonically:
+1. Start from the JSON‑LD `CustomDataLink` object as it appears on the wire, including `@context` and `@type`. Remove
+   the top‑level `signature` property if present. The remaining JSON value is the input to canonicalisation.
+2. Apply the JSON Canonicalization Scheme (JCS, RFC 8785) to this JSON value:
 
-    * **Objects:** sort properties by Unicode code‑point of the property name (ascending). **Duplicate property names
-      MUST raise an error.** Omit the `signature` property if present. `@context` and `@type` remain and are part of the preimage.
+    * **Objects:** treat members as unordered and emit them sorted by Unicode code‑point of the property name (
+      ascending). **Duplicate property names MUST raise an error.** `@context` and `@type` remain and are part of the
+      preimage.
     * **Arrays:** preserve element order.
-    * **Booleans / null:** emit literal tokens.
-    * **Strings:** emit JSON strings.
+    * **Booleans / null:** emit literal tokens `true`, `false`, `null`.
+    * **Strings:** emit JSON strings as specified by JCS (same escaping rules as ECMAScript `JSON.stringify`).
     * **Numbers:**
 
-        * If value fits **signed 64‑bit integer**, write as integer literal.
-        * Else if value fits an IEEE‑754 **double** and round‑trips via the platform JSON writer, write the
-          shortest‑round‑trip double literal.
-        * Else **reject** the object as non‑canonical.
-2. The result is the **payload bytes** (UTF‑8).
+        * If the value fits a **signed 64‑bit integer**, write it as a plain integer literal (no exponent).
+        * Otherwise, write it as the shortest round‑trip IEEE‑754 double literal as defined by JCS (lowercase `e`, no
+          `+`, no unnecessary leading or trailing zeros).
+        * Non‑I‑JSON numbers (such as NaN or ±Infinity) MUST be rejected as non‑canonical.
+3. The result is the **payload bytes** (UTF‑8).
 
 * **Payload hash**: `keccak256(payload bytes)`.
+
+Note: JSON‑LD is used for semantics and interop; canonicalisation and signing operate on the raw JSON representation (
+JCS) and do not perform JSON‑LD expansion/compaction.
 
 ---
 
@@ -300,21 +315,24 @@ in lowercase in `profile.namespaces`.
 
         1. Pin current head → `closedCid`.
         2. For each link in the closed head, set `index.entries[link.name] = closedCid`.
-        3. Start new head `{ "@context": "https://aboutcircles.com/contexts/circles‑namespace/", "@type": "NamespaceChunk", "prev": closedCid, "links": [] }`.
+        3. Start new head
+           `{ "@context": "https://aboutcircles.com/contexts/circles‑namespace/", "@type": "NamespaceChunk", "prev": closedCid, "links": [] }`.
     * If the **logical name** already exists **in the head**, replace that element; else append.
 * **Commit (with pin confirmation):**
 
-    0. **Rebase (normative):** Immediately **before** serializing the profile JSON:
+    0. **Rebase (recommended):** Immediately **before** serializing the profile JSON, writers SHOULD:
 
         1. Resolve the latest profile digest for `ownerAvatar` via the registry.
         2. Fetch that profile JSON by CIDv0.
         3. Re‑apply the staged `namespaces[namespaceKeyLower] = indexCid` mutations **onto that latest profile object**.
         4. Proceed with serialization/pinning of this **rebased** profile.
-           *If the registry digest changes again between this step and the registry call below, last‑writer‑wins applies; writers MAY optionally retry once.*
+           *If the registry digest changes again between this step and the registry call below, last‑writer‑wins
+           applies; writers MAY optionally retry once.*
     1. Pin the current head → `headCid`. **If the pin cannot be confirmed, the write MUST fail.**
     2. For each link in the head, set `index.entries[link.name] = headCid`.
     3. Set `index.head = headCid`.
-    4. Serialize `index` (as JSON‑LD `NameIndexDoc`), compute CIDv0 (`indexCid`), **pin index**. **If the pin cannot be confirmed, the write MUST
+    4. Serialize `index` (as JSON‑LD `NameIndexDoc`), compute CIDv0 (`indexCid`), **pin index**. **If the pin cannot be
+       confirmed, the write MUST
        fail and the profile MUST NOT be mutated.**
     5. Update **(rebased)** `profile.namespaces[namespaceKeyLower] = indexCid`.
     6. Serialize profile JSON‑LD, pin, compute `digest32`. **If the pin cannot be confirmed, the publish MUST fail.**
@@ -324,11 +342,16 @@ in lowercase in `profile.namespaces`.
 
 ### 7.2 Atomic commit and multi‑namespace batching (normative)
 
-**Atomicity (per publish):** A publish operation MUST be **all‑or‑nothing** across **all** objects it intends to mutate (all involved chunks, indices, and the profile). If any required pin or precondition fails, the publish MUST NOT change the profile digest.
+**Atomicity (per publish):** A publish operation MUST be **all‑or‑nothing** across **all** objects it intends to
+mutate (all involved chunks, indices, and the profile). If any required pin or precondition fails, the publish MUST NOT
+change the profile digest.
 
-**Batching across namespaces:** A client MAY stage updates for **multiple namespaces** belonging to the same `ownerAvatar` and publish them in **one** profile update, provided §7.1’s rules are satisfied for each namespace and the **atomicity** rule above is respected.
+**Batching across namespaces:** A client MAY stage updates for **multiple namespaces** belonging to the same
+`ownerAvatar` and publish them in **one** profile update, provided §7.1’s rules are satisfied for each namespace and the
+**atomicity** rule above is respected.
 
-**Rationale (non‑normative):** Prevents partial publishes and aligns base writes with proposer‑bundle acceptance flows while reducing on‑chain updates.
+**Rationale (non‑normative):** Prevents partial publishes and aligns base writes with proposer‑bundle acceptance flows
+while reducing on‑chain updates.
 
 ---
 
@@ -337,27 +360,40 @@ in lowercase in `profile.namespaces`.
 Given `senderAvatar` and `namespaceKey`:
 
 1. **Resolve profile:** `digest32 = getMetadataDigest(senderAvatar)`. If zero → profile absent.
-2. **Fetch profile** via IPFS using CIDv0 derived from `digest32`. Object MUST be JSON‑LD with `@context`/`@type` per §4.1.
+2. **Fetch profile** via IPFS using CIDv0 derived from `digest32`. Object MUST be JSON‑LD with `@context`/`@type` per
+   §4.1.
 3. **Validate namespace key:** `namespaceKey` MUST match §2.1 (lowercase address). Readers MUST ignore any `namespaces`
    entries whose keys are not valid addresses.
 4. **Fetch index:** `idxCid = profile.namespaces[namespaceKeyLower]`. If missing → nothing to read.
 5. **Walk chunks:** start at `cur = index.head`; iterate `prev` pointers. Index/chunks MUST be JSON‑LD per §4.2/§4.3.
 6. **Verify each link (normative order):**
 
-    1. **Canonical bytes:** compute canonical JSON‑LD of the link **with `signature` removed** (per §5), and its keccak.
-    2. **Signature:** verify cryptographically (EOA or Safe) per §6. Drop the link on cryptographic failure (no exception).
-    3. **Chain domain:** require `link.chainId == verifyingChainId`; otherwise **drop** (no error).
+    1. **Canonical bytes:** compute canonical JSON of the link **with `signature` removed** (per §5), and its keccak.
+    2. **Chain domain:** require `link.chainId == verifyingChainId`; otherwise **drop** (no error).
+    3. **Signature:** verify cryptographically (EOA or Safe) per §6. Drop the link on cryptographic failure (no
+       exception).
     4. **Replay scope (normative):** enforce duplicate‑nonce detection **only among links that passed (2) and (3)**,
-       scoped to the tuple `(<namespaceOwner>, <namespaceKey>, <signerAddress>)`.
-       Implementations MUST NOT treat the same nonce reused in a different tuple as a replay.
+       scoped to the tuple `(<namespaceOwner>, <namespaceKey>, <signerAddress>, <nonce>)`. Implementations MUST NOT
+       treat the same nonce reused in a different tuple as a replay, and within a single logical read operation (“read
+       session”) MUST NOT emit more than one link with the same tuple.
+
 7. **Ordering (normative):** present links **newest‑first** by `signedAt` descending.
    **Tie‑break:** if `signedAt` is equal, higher array index within its chunk is considered newer.
 8. **Aggregation guidance (non‑normative):** when aggregating across directions or mirrored copies, de‑duplicate *
    *byte‑identical links** using `keccak256(canonical link JSON without signature)`.
 
+A *read session* is a single logical operation that walks a namespace or set of namespaces (for example, one invocation
+of a streaming API until completion, or one aggregate‑links job over a time window). Replay detection need not be
+persisted across sessions; applications that require stronger cross‑session guarantees SHOULD enforce additional
+idempotency at the application layer (for example, by embedding application‑level IDs in payloads and de‑duplicating on
+those IDs).
+
 **Failure policy:** Drop cryptographically invalid links; throw on IPFS/RPC/transport failures.
 
-**Note (non‑normative, early‑stop):** Readers **MUST NOT** early‑stop a chunk walk solely because a link’s `signedAt` falls outside a query window. Storage order is by **append/count, not time**; older chunks may contain **newer** `signedAt` values, and array order within a chunk is not time‑sorted. Correct, windowed scans require walking the full `head → prev → …` chain (or using a separate, explicitly‑trusted optimization).
+**Note (non‑normative, early‑stop):** Readers **MUST NOT** early‑stop a chunk walk solely because a link’s `signedAt`
+falls outside a query window. Storage order is by **append/count, not time**; older chunks may contain **newer**
+`signedAt` values, and array order within a chunk is not time‑sorted. Correct, windowed scans require walking the full
+`head → prev → …` chain (or using a separate, explicitly‑trusted optimization).
 
 ---
 
@@ -369,7 +405,8 @@ When a dApp asks a user‑wallet to store a **pre‑signed** link in the user’
 
 * **Fingerprint** = `keccak256(uncompressed 64‑byte pubkey)` (the 65‑byte uncompressed key without the leading `0x04`),
   encoded as `0x` + 64 hex.
-* Operator publishes `signingKeys[fingerprint] = { "@type": "SigningKey", publicKey, validFrom, validTo?, revokedAt? }` in its own profile.
+* Operator publishes `signingKeys[fingerprint] = { "@type": "SigningKey", publicKey, validFrom, validTo?, revokedAt? }`
+  in its own profile.
 
 **Wallet acceptance (EOA operator, normative):**
 
@@ -418,6 +455,10 @@ signatures      = single 65B owner signature (R||S||V) over getTransactionHash(.
 * **Malformed JSON** (profile/index/chunk) → throw; include the offending CID in the error.
 * **Transport / RPC errors** → throw.
 * **CID policy violated** (not CIDv0 where required) → reject/throw.
+* **Invalid metadata CIDs:** malformed, unsupported or size‑violating CIDs encountered in non‑critical metadata
+  positions (e.g., individual `namespaces` entries, `entries[name]`, `NamespaceChunk.prev`) SHOULD cause the offending
+  entry to be treated as invalid; readers MAY keep a local blacklist of such CIDs to avoid repeated fetch attempts in
+  the same process.
 * **Missing JSON‑LD envelope** (`@context`/`@type`) on CPP objects → reject/throw.
 
 ---
@@ -581,7 +622,7 @@ sequenceDiagram
 * **EOA signatures:** low‑S enforced; high‑S rejected.
 * **Safe verification:** prefer `isValidSignature(bytes,bytes)` with `from = <safe>`; allow one V‑toggle retry.
 * **Ordering:** newest→oldest by `signedAt`, tie‑break by append index.
-* **Replay scope:** duplicate‑nonce detection is per `(namespaceOwner, namespaceKey, signerAddress)`.
+* **Replay scope:** duplicate‑nonce detection is per `(namespaceOwner, namespaceKey, signerAddress, nonce)`.
 * **Error semantics:** invalid ⇒ drop; infra errors ⇒ throw; **pin failures ⇒ throw**.
 * **JSON‑LD:** All CPP objects carry `@context`/`@type` as in §4 and must be emitted/validated accordingly.
 
@@ -594,15 +635,18 @@ sequenceDiagram
 3. Canonical payload bytes and keccak match the reference for test vectors (JSON‑LD with `signature` removed).
 4. EOA signatures are low‑S; high‑S is rejected.
 5. Safe signatures validate via ERC‑1271(bytes) with `from = <safe>`.
-6. **Writer atomicity:** updates are atomic per §7.2; rotation semantics match §7.1; **rebase before serialize** is implemented.
+6. **Writer atomicity:** updates are atomic per §7.2; rotation semantics match §7.1; **rebase before serialize** is
+   implemented.
 7. **Batching:** multiple namespaces for one owner MAY be published in a single atomic update.
 8. Readers verify links, **scope replay per tuple**, and order as §8.
 9. All IPFS reads respect the **8 MiB** per‑object limit.
-10. **Mirroring:** a byte‑for‑byte `CustomDataLink` signed by a third party can be inserted into `(recipient, signer)` and
+10. **Mirroring:** a byte‑for‑byte `CustomDataLink` signed by a third party can be inserted into `(recipient, signer)`
+    and
     verifies under §6.
 11. **Pinning (writes):** writers pin head/index/profile/payload; writes fail on pin failure.
 12. **Pinning (mirrors):** mirrorers pin mirrored payloads (and SHOULD pin head/index).
-13. **Order‑of‑checks:** readers perform signature → chain check → tuple‑scoped replay, in that order (§8.6). Readers do **not** early‑stop chunk walks based solely on `signedAt` window boundaries.
+13. **Order‑of‑checks:** readers perform chain check → signature → tuple‑scoped replay (§8.6). Readers do **not**
+    early‑stop chunk walks based solely on `signedAt` window boundaries.
 14. **JSON‑LD envelope present** on all CPP objects.
 
 ---
@@ -794,7 +838,10 @@ sequenceDiagram
 * Treat `namespaces` keys that are not addresses as invalid input; ignore when reading, never produce when writing.
 * For Safe verification, always set `eth_call.from = signerAddress`.
 * Prefer pinning to **multiple** targets for durability (local node + remote service).
-* **Windowed reads (non‑normative):** The storage layout is **append‑ordered**, not time‑ordered. A link with `signedAt` outside a desired time window **does not** imply that the remaining tail is out‑of‑window. Readers that need a strict, trustless result **must** walk the full chain (`head → prev → ...`) or rely on a separate, explicitly‑trusted optimization layer.
+* **Windowed reads (non‑normative):** The storage layout is **append‑ordered**, not time‑ordered. A link with `signedAt`
+  outside a desired time window **does not** imply that the remaining tail is out‑of‑window. Readers that need a strict,
+  trustless result **must** walk the full chain (`head → prev → ...`) or rely on a separate, explicitly‑trusted
+  optimization layer.
 
 ---
 
@@ -832,11 +879,12 @@ sequenceDiagram
 
 An optional payload that records *what was seen, where, and when* for auditability.
 
-**Payload shape (`mirror.v1` JSON):**
+**Payload shape (`mirror.v1` JSON‑LD):**
 
 ```json
 {
-  "type": "mirror.v1",
+  "@context": "https://aboutcircles.com/contexts/circles‑mirror/",
+  "@type": "MirrorV1",
   "origSigner": "0x<address>",
   "origName": "inv‑2025‑00042",
   "origCid": "Qm<cidv0>",
