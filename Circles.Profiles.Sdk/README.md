@@ -16,8 +16,9 @@ profile, fresh preferences, fresh everything. Your data ends up scattered behind
 other and definitely don’t belong to you.
 
 Circles Profiles changes the dynamic. Instead of adapting to every new app, you keep your own data in a personal space
-secured by cryptographic signatures and open standards. Everything you publish lives on IPFS. Nothing gets locked away
-in places you can’t access.
+secured by cryptographic signatures and open standards. Everything you publish lives on IPFS — following a pattern
+already proven in earlier decentralized systems that separate signed metadata from blob storage. Nothing gets locked
+away in places you can’t access.
 
 ---
 
@@ -53,8 +54,8 @@ don’t include built-in encryption and rely on whatever you or your apps provid
 Profiles make it easy to build marketplaces that stay open and user-centric:
 
 * Anyone can publish offers directly from their namespace.
-* You choose whose offers you pay attention to — trusted individuals, specific groups, curated lists, or combinations of
-  them.
+* You choose whose offers you pay attention to — trusted individuals, specific groups, curated lists, or combinations
+  of them.
 * Aggregators can read public data and surface helpful results without owning or controlling the listings.
 
 Users own the data; marketplaces compete by being useful rather than by locking anyone in.
@@ -72,18 +73,25 @@ without building isolated reputation systems.
 Profiles build on the same trust-based foundation as the Circles currency system. Each address gets a structured way to
 publish off-chain data that is both verifiable and portable.
 
+Some of the design may feel familiar to anyone who has worked with earlier decentralized systems. The pattern of
+giving each identity its own signed, append-only log — something Scuttlebutt pioneered — maps cleanly to our namespaces,
+where signed links reference content stored on IPFS. JSON-LD helps keep things flexible and meaningful.
+
 Here’s the core setup:
 
 * **Profile Document**
   A JSON-LD file stored on IPFS holding your metadata, keys, and pointers to namespaces.
 
 * **Namespaces**
-  Append-only logs of signed “links.” A link is a small envelope pointing to actual data—preferences, listings,
-  messages—also on IPFS.
+  Append-only logs of signed “links.” This resembles the SSB approach: signatures protect the structure, while the
+  actual content is stored elsewhere. The important difference is that your namespace reflects only what you choose to
+  keep — you can remove links at any time, so your profile stays curated rather than becoming a permanent history.
+  **The chain already handles immutability where it actually matters; the profile layer doesn’t need to duplicate that.
+  **
 
 * **Mirroring**
-  A way to bring in signed links from other namespaces and store them inside your own. You get a verifiable,
-  tamper-resistant reference you control.
+  A way to bring in signed links from other namespaces and store them inside your own. It works like a selective
+  follow-style replication: you only keep the entries that matter to you, without maintaining a global dataset.
 
 Apps don’t need custom APIs or trust each other’s backends. They simply read the signed, user-owned data directly from
 the network.
