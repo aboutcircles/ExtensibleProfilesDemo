@@ -91,7 +91,7 @@ Here’s the core setup:
 
 * **Mirroring**
   A way to bring in signed links from other namespaces and store them inside your own. It works like a selective
-  follow-style replication: you only keep the entries that matter to you, without maintaining a global dataset.
+  follow-style replication: you only keep the entries that matter to you.
 
 Apps don’t need custom APIs or trust each other’s backends. They simply read the signed, user-owned data directly from
 the network.
