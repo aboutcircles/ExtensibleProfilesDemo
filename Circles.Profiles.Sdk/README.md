@@ -93,10 +93,27 @@ Here’s the core setup:
   A way to bring in signed links from other namespaces and store them inside your own. It works like a selective
   follow-style replication: you only keep the entries that matter to you.
 
+![img.png](img.png)
+
+### Reading Data: Pulling From People You Trust
+
+Circles Profiles follow a pull-based model. There’s no central index that every app queries.
+Instead, you choose *whose* namespaces you want to read from.
+
+The Circles trust graph naturally helps here:
+
+* Wallets and apps can simply **pull data from the people you trust**, showing only their offers, signals, or messages.
+  This can be done entirely client-side — trust relationships already exist on-chain.
+
+* For broader discovery, **aggregation providers** can watch many namespaces at once, crunch the data, and expose
+  filtered results (e.g. “all offers in my region” or “all group signals”).
+  Since all entries remain signed, you never lose visibility into **who actually published what**.
+
+No matter whether you're pulling directly from individual addresses or consuming curated results from an aggregator,
+the provenance stays intact.
+
 Apps don’t need custom APIs or trust each other’s backends. They simply read the signed, user-owned data directly from
 the network.
-
-![img.png](img.png)
 
 ---
 
