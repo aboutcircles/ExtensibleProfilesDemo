@@ -86,8 +86,7 @@ Here’s the core setup:
   Append-only logs of signed “links.” This resembles the SSB approach: signatures protect the structure, while the
   actual content is stored elsewhere. The important difference is that your namespace reflects only what you choose to
   keep — you can remove links at any time, so your profile stays curated rather than becoming a permanent history.
-  **The chain already handles immutability where it actually matters; the profile layer doesn’t need to duplicate that.
-  **
+  **The chain already handles immutability where it actually matters; the profile layer doesn’t need to duplicate that.**
 
 * **Mirroring**
   A way to bring in signed links from other namespaces and store them inside your own. It works like a selective
@@ -114,6 +113,12 @@ the provenance stays intact.
 
 Apps don’t need custom APIs or trust each other’s backends. They simply read the signed, user-owned data directly from
 the network.
+
+### Displaying Data
+
+Frontends don’t have to guess how to render anything.
+Because payloads use **JSON-LD types**, apps can detect what kind of object they’re looking at — an offer, a preference,
+a badge, or something completely custom — and display it appropriately.
 
 ---
 
